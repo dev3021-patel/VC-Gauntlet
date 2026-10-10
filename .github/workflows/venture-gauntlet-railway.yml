@@ -22,9 +22,6 @@ jobs:
     defaults:
       run:
         working-directory: projects/6db221e81402447b835e925767b72e7a
-    env:
-      XDG_CACHE_HOME: ${{ runner.temp }}/venture-gauntlet-cache
-      PARTY_OUTPUT_DIR: ${{ runner.temp }}/venture-gauntlet-output
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +32,9 @@ jobs:
           cache: npm
           cache-dependency-path: projects/6db221e81402447b835e925767b72e7a/package-lock.json
       - name: Install, test, and build
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/venture-gauntlet-cache
+          PARTY_OUTPUT_DIR: ${{ runner.temp }}/venture-gauntlet-output
         run: |
           npm ci
           npm test
