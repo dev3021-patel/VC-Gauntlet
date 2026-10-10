@@ -1,0 +1,95 @@
+/* Top right, under the world badge: the bottom-right corner is the Player actions stack. */
+.dev-tools {
+  position: absolute;
+  right: max(22px, env(safe-area-inset-right));
+  top: max(72px, calc(env(safe-area-inset-top) + 72px));
+  z-index: 4;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.dev-tools button,
+.dev-tools input,
+.dev-tools select {
+  font: inherit;
+}
+
+.dev-tools-toggle,
+.dev-tools-panel {
+  color: #dce7dd;
+  border: 1px solid rgb(217 255 154 / 18%);
+  border-radius: 10px;
+  background: rgb(6 18 14 / 94%);
+  box-shadow: 0 12px 36px rgb(0 0 0 / 35%);
+}
+
+.dev-tools-toggle {
+  height: 34px;
+  padding: 0 12px;
+  cursor: pointer;
+}
+
+.dev-tools-panel {
+  display: grid;
+  width: 220px;
+  gap: 10px;
+  padding: 14px;
+}
+
+.dev-tools-panel p {
+  margin: 0;
+  color: #d9ff9a;
+  font-weight: 800;
+}
+
+.dev-tools-panel label {
+  display: grid;
+  gap: 5px;
+  color: #a8b9ad;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.dev-tools-panel input,
+.dev-tools-panel select {
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
+  color: #f2f8e9;
+  border: 1px solid rgb(210 245 180 / 18%);
+  border-radius: 7px;
+  background: #071410;
+}
+
+.dev-tools-action,
+.dev-tools-reset {
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dev-tools-action {
+  color: #071410;
+  background: #d9ff9a;
+}
+
+.dev-tools-reset {
+  color: #c4d0c6;
+  background: rgb(255 255 255 / 8%);
+}
+
+.dev-tools-panel small { color: #a8b9ad; line-height: 1.35; }
+
+/* The touch HUD owns the bottom corners (pad, FIRE, Change avatar), so the
+   dev-only panel sits below the control dock instead. */
+@media (pointer: coarse), (max-width: 680px) {
+  .dev-tools {
+    top: max(172px, calc(env(safe-area-inset-top) + 172px));
+  }
+}

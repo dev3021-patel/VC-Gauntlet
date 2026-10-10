@@ -1,0 +1,15 @@
+[project]
+name = "party-conquest-backend"
+version = "0.1.0"
+description = "Minimal Quart backend skeleton for Party Conquest."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "no_db_stub: exercise explicit database configuration (do not autostub it)",
+    "real_mobs: run the real mob queries instead of the empty-population stub",
+    "real_avatar_claims: run the real avatar-claim queries instead of the uncontested stub",
+    "shot_cadence: keep the real one-second laser cooldown instead of disabling it",
+]

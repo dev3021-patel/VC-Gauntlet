@@ -1,0 +1,10 @@
+__pycache__/
+**/.aws
+**/.ssh
+**/.codex
+*.pyc
+.pytest_cache/
+.venv/
+tests/
+deploy/
+README.md
