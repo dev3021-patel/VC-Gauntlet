@@ -29,6 +29,58 @@ const vcJson = JSON.stringify({
 });
 
 describe("shared envelope", () => {
+  it("requires the customer agent's complete practical evaluation", () => {
+    const customer = parseContribution(
+      "customer",
+      "assessment",
+      JSON.stringify({
+        summary: "Useful once, but not a recurring paid workflow yet.",
+        rationale: "The founder supplied no evidence that customers pay for this today.",
+        assumptions: [{ statement: "Customers currently use ChatGPT for this task.", grounding: "assumption" }],
+        risks: ["The free workaround may remain good enough."],
+        positionLabel: "MAYBE TRY",
+        fields: {
+          customerPainScore: 4,
+          position: "MAYBE TRY",
+          firstPersonVerdict: "As the customer, I would try it once, but I would not pay monthly yet.",
+          currentWorkaround: "I use ChatGPT and a spreadsheet.",
+          painIntensity: "LOW",
+          painDetail: "This is occasional time loss, not urgent operational risk.",
+          switchingFriction: "MEDIUM",
+          switchingFrictionDetail: "I would need to trust a new workflow with my idea.",
+          willingnessToPay: "LOW",
+          willingnessToPayDetail: "I would use a free trial before considering a purchase.",
+          trustBarrier: "HIGH",
+          trustBarrierDetail: "Unsupported claims could push me toward a bad decision.",
+          expectedUsageFrequency: "Rarely",
+          momTestRealityCheck: "NONE",
+          adoptionTrigger: "A deadline on an idea I am about to fund.",
+          retentionRisk: "HIGH",
+          customerSegmentFit: "MEDIUM",
+          biggestObjection: "I already get most of this value from ChatGPT.",
+          whatWouldChangeMyMind: "Five founders returning weekly after using it on live decisions.",
+          customerTest: "Interview 15 founders about their last validation decision and manually run one review today.",
+          customerVerdict: "I might try it, but I would not pay until it replaces repeated manual research.",
+        },
+      }),
+    );
+    expect(customer.ok).toBe(true);
+    if (customer.ok) expect(customer.value.customer?.painScore).toBe(4);
+  });
+
+  it("rejects a customer response that omits the required decision trail", () => {
+    const customer = parseContribution(
+      "customer",
+      "assessment",
+      JSON.stringify({
+        summary: "Not enough evidence.", rationale: "The proof is missing.",
+        assumptions: [{ statement: "Demand exists.", grounding: "unknown" }], risks: ["No proof."],
+        positionLabel: "WOULD IGNORE", fields: { customerPainScore: 2, position: "WOULD IGNORE" },
+      }),
+    );
+    expect(customer.ok).toBe(false);
+  });
+
   it("keeps VC MAYBE distinct from the Chair pivot verdict", () => {
     expect(isVcPosition("MAYBE")).toBe(true);
     expect(isChairVerdict("MAYBE")).toBe(false);

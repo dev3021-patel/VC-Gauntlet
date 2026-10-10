@@ -14,6 +14,27 @@ async function request(path: string, payload: unknown) {
   return await response.json() as { run?: DebateRun; error?: string };
 }
 
+function CustomerEvaluation({ run }: { run: DebateRun }) {
+  const message = run.messages.find((item) => item.speaker === "customer" && item.envelope?.customer);
+  const customer = message?.envelope?.customer;
+  if (!customer) return null;
+  const items = [
+    ["CUSTOMER PAIN SCORE", `${customer.painScore}/10`],
+    ["POSITION", customer.position],
+    ["FIRST-PERSON VERDICT", customer.firstPersonVerdict],
+    ["CURRENT WORKAROUND", customer.currentWorkaround],
+    ["WILLINGNESS TO PAY", customer.willingnessToPay],
+    ["SWITCHING FRICTION", customer.switchingFriction],
+    ["TRUST BARRIER", customer.trustBarrier],
+    ["BIGGEST OBJECTION", customer.biggestObjection],
+    ["ADOPTION TRIGGER", customer.adoptionTrigger],
+    ["RETENTION RISK", customer.retentionRisk],
+    ["WHAT WOULD CHANGE MY MIND", customer.whatWouldChangeMyMind],
+    ["CUSTOMER TEST", customer.customerTest],
+  ] as const;
+  return <section className="customer-evaluation" aria-label="Customer evaluation"><h3>Customer evaluation</h3><dl>{items.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl></section>;
+}
+
 export function App() {
   const [draft, setDraft] = useState<IdeaBrief>(emptyBrief());
   const [run, setRun] = useState<DebateRun | null>(null);
@@ -37,6 +58,7 @@ export function App() {
         {message.envelope?.fields.questions ? <p className="trail">Questions: {(message.envelope.fields.questions as string[]).join(" · ")}</p> : null}
         {message.envelope?.decision ? <div className="decision"><p>Chair verdict: <strong>{message.envelope.decision.verdict}</strong></p><p>Next steps: {message.envelope.decision.nextSteps.join(" · ")}</p><p>Unresolved risks: {message.envelope.decision.unresolvedRisks.join(" · ")}</p></div> : null}
         {message.envelope?.assumptions?.map((claim, i) => <small key={i}>{claim.grounding}: {claim.statement}</small>)}</li>)}</ol>
+      <CustomerEvaluation run={run} />
       {run.phase === "founder" ? <div className="founder"><label>Question or evidence<textarea value={question} onChange={(e) => setQuestion(e.target.value)} /></label><button disabled={busy || !question.trim()} onClick={() => { void call("/api/debate/founder", { runId: run.id, founderMessage: question }); setQuestion(""); }}>Add to discussion</button><button disabled={busy} onClick={() => void call("/api/debate/verdict", { runId: run.id })}>Request verdict</button></div> : null}
       {run.phase !== "founder" && run.phase !== "complete" ? <button disabled={busy} onClick={() => void call("/api/debate/advance", { runId: run.id })}>{busy ? "Generating…" : run.phase === "verdict" ? "Generate Chair verdict" : "Generate next contribution"}</button> : null}
     </section>}</main>;

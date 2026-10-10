@@ -81,6 +81,31 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
   const raw =
     role === "vc"
       ? vcJson("MAYBE", 50)
+      : role === "customer"
+        ? JSON.stringify({
+            summary: "Worth a one-time try, but not recurring payment.",
+            rationale: "The brief has no proof the target buyer pays for this today.",
+            assumptions: [{ statement: "The current workaround is adequate.", grounding: "assumption" }],
+            risks: ["The product may be a novelty."],
+            positionLabel: "MAYBE TRY",
+            fields: {
+              customerPainScore: 4, position: "MAYBE TRY",
+              firstPersonVerdict: "As the customer, I would try it once before paying.",
+              currentWorkaround: "I use ChatGPT and a spreadsheet.",
+              painIntensity: "LOW", painDetail: "This is occasional friction, not an urgent failure.",
+              switchingFriction: "MEDIUM", switchingFrictionDetail: "I would need to trust a new process.",
+              willingnessToPay: "LOW", willingnessToPayDetail: "I need repeat value before spending money.",
+              trustBarrier: "HIGH", trustBarrierDetail: "A bad recommendation could waste my time.",
+              expectedUsageFrequency: "Rarely", momTestRealityCheck: "NONE",
+              adoptionTrigger: "A live funding decision.", retentionRisk: "HIGH", customerSegmentFit: "MEDIUM",
+              biggestObjection: "ChatGPT already solves enough of this for free.",
+              whatWouldChangeMyMind: "Five founders return weekly after using it on real ideas.",
+              customerTest: "Interview 15 founders about their last validation workflow and manual workaround.",
+              customerVerdict: "I might try it, but I would not pay for a one-off opinion.",
+            },
+            changed: started.value.lock?.stage === "rebuttal" ? false : undefined,
+            changeReason: started.value.lock?.stage === "rebuttal" ? "The challenge does not change my view." : undefined,
+          })
       : JSON.stringify({
           summary: `${role} view`,
           rationale: "Reasoned from the brief.",

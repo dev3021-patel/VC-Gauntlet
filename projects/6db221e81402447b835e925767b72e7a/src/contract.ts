@@ -33,6 +33,21 @@ export type ContributionStage = (typeof CONTRIBUTION_STAGES)[number];
 export const VC_POSITIONS = ["INVEST", "MAYBE", "PASS"] as const;
 export type VcPosition = (typeof VC_POSITIONS)[number];
 
+export const CUSTOMER_POSITIONS = ["WOULD USE", "MAYBE TRY", "WOULD IGNORE"] as const;
+export type CustomerPosition = (typeof CUSTOMER_POSITIONS)[number];
+
+export const CUSTOMER_LEVELS = ["HIGH", "MEDIUM", "LOW"] as const;
+export type CustomerLevel = (typeof CUSTOMER_LEVELS)[number];
+
+export const CUSTOMER_PAYMENT_LEVELS = ["HIGH", "MEDIUM", "LOW", "UNKNOWN"] as const;
+export type CustomerPaymentLevel = (typeof CUSTOMER_PAYMENT_LEVELS)[number];
+
+export const CUSTOMER_USAGE_FREQUENCIES = ["Daily", "Weekly", "Monthly", "Rarely", "One-time"] as const;
+export type CustomerUsageFrequency = (typeof CUSTOMER_USAGE_FREQUENCIES)[number];
+
+export const MOM_TEST_LEVELS = ["STRONG", "WEAK", "NONE"] as const;
+export type MomTestLevel = (typeof MOM_TEST_LEVELS)[number];
+
 export const CHAIR_VERDICTS = ["invest", "pivot", "pass"] as const;
 export type ChairVerdict = (typeof CHAIR_VERDICTS)[number];
 
@@ -73,6 +88,30 @@ export interface VcScorecard {
   oneLineVerdict: string;
 }
 
+export interface CustomerEvaluation {
+  painScore: number;
+  position: CustomerPosition;
+  firstPersonVerdict: string;
+  currentWorkaround: string;
+  painIntensity: CustomerLevel;
+  painDetail: string;
+  switchingFriction: CustomerLevel;
+  switchingFrictionDetail: string;
+  willingnessToPay: CustomerPaymentLevel;
+  willingnessToPayDetail: string;
+  trustBarrier: CustomerLevel;
+  trustBarrierDetail: string;
+  expectedUsageFrequency: CustomerUsageFrequency;
+  momTestRealityCheck: MomTestLevel;
+  adoptionTrigger: string;
+  retentionRisk: CustomerLevel;
+  customerSegmentFit: CustomerLevel;
+  biggestObjection: string;
+  whatWouldChangeMyMind: string;
+  customerTest: string;
+  customerVerdict: string;
+}
+
 export interface RoleEnvelope {
   schemaVersion: typeof SCHEMA_VERSION;
   role: RoleId;
@@ -87,6 +126,7 @@ export interface RoleEnvelope {
   fields: RoleFields;
   decision: ChairDecision | null;
   vc: VcScorecard | null;
+  customer: CustomerEvaluation | null;
 }
 
 export interface RoleSlot {
@@ -179,6 +219,10 @@ export function isChairVerdict(value: string): value is ChairVerdict {
 
 export function isVcPosition(value: string): value is VcPosition {
   return (VC_POSITIONS as readonly string[]).includes(value);
+}
+
+export function isCustomerPosition(value: string): value is CustomerPosition {
+  return (CUSTOMER_POSITIONS as readonly string[]).includes(value);
 }
 
 export function chairVerdictFromVcPosition(_position: VcPosition): null {
@@ -298,6 +342,82 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
   };
 }
 
+function customerString(fields: RoleFields, key: string): string | null {
+  const value = fields[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function customerChoice<T extends readonly string[]>(
+  fields: RoleFields,
+  key: string,
+  choices: T,
+): T[number] | null {
+  const value = fields[key];
+  return typeof value === "string" && (choices as readonly string[]).includes(value)
+    ? value as T[number]
+    : null;
+}
+
+function parseCustomer(fields: RoleFields, positionLabel: string): CustomerEvaluation | null {
+  const painScore = fields.customerPainScore;
+  if (typeof painScore !== "number" || !Number.isInteger(painScore) || painScore < 0 || painScore > 10) {
+    return null;
+  }
+  const position = customerChoice(fields, "position", CUSTOMER_POSITIONS);
+  const painIntensity = customerChoice(fields, "painIntensity", CUSTOMER_LEVELS);
+  const switchingFriction = customerChoice(fields, "switchingFriction", CUSTOMER_LEVELS);
+  const willingnessToPay = customerChoice(fields, "willingnessToPay", CUSTOMER_PAYMENT_LEVELS);
+  const trustBarrier = customerChoice(fields, "trustBarrier", CUSTOMER_LEVELS);
+  const expectedUsageFrequency = customerChoice(fields, "expectedUsageFrequency", CUSTOMER_USAGE_FREQUENCIES);
+  const momTestRealityCheck = customerChoice(fields, "momTestRealityCheck", MOM_TEST_LEVELS);
+  const retentionRisk = customerChoice(fields, "retentionRisk", CUSTOMER_LEVELS);
+  const customerSegmentFit = customerChoice(fields, "customerSegmentFit", CUSTOMER_LEVELS);
+  const textKeys = [
+    "firstPersonVerdict",
+    "currentWorkaround",
+    "painDetail",
+    "switchingFrictionDetail",
+    "willingnessToPayDetail",
+    "trustBarrierDetail",
+    "adoptionTrigger",
+    "biggestObjection",
+    "whatWouldChangeMyMind",
+    "customerTest",
+    "customerVerdict",
+  ] as const;
+  const text = Object.fromEntries(textKeys.map((key) => [key, customerString(fields, key)]));
+  if (
+    !position || positionLabel !== position || !painIntensity || !switchingFriction ||
+    !willingnessToPay || !trustBarrier || !expectedUsageFrequency || !momTestRealityCheck ||
+    !retentionRisk || !customerSegmentFit || Object.values(text).some((value) => !value)
+  ) {
+    return null;
+  }
+  return {
+    painScore,
+    position,
+    firstPersonVerdict: text.firstPersonVerdict!,
+    currentWorkaround: text.currentWorkaround!,
+    painIntensity,
+    painDetail: text.painDetail!,
+    switchingFriction,
+    switchingFrictionDetail: text.switchingFrictionDetail!,
+    willingnessToPay,
+    willingnessToPayDetail: text.willingnessToPayDetail!,
+    trustBarrier,
+    trustBarrierDetail: text.trustBarrierDetail!,
+    expectedUsageFrequency,
+    momTestRealityCheck,
+    adoptionTrigger: text.adoptionTrigger!,
+    retentionRisk,
+    customerSegmentFit,
+    biggestObjection: text.biggestObjection!,
+    whatWouldChangeMyMind: text.whatWouldChangeMyMind!,
+    customerTest: text.customerTest!,
+    customerVerdict: text.customerVerdict!,
+  };
+}
+
 function parseDecision(record: Record<string, unknown>): ChairDecision | null {
   const verdict = record.verdict;
   if (typeof verdict !== "string" || !isChairVerdict(verdict)) return null;
@@ -372,6 +492,7 @@ export function parseContribution(
 
   let decision: ChairDecision | null = null;
   let vc: VcScorecard | null = null;
+  let customer: CustomerEvaluation | null = null;
   if (role === "chair") {
     if (stage !== "verdict") return invalid("The Chair only speaks at the verdict.");
     const decisionRecord = asRecord(record.decision);
@@ -391,6 +512,13 @@ export function parseContribution(
       return invalid(
         "VC responses require a 0-100 score and INVEST, MAYBE, or PASS. MAYBE is not Pivot.",
       );
+    }
+  }
+
+  if (role === "customer" && (stage === "assessment" || stage === "rebuttal")) {
+    customer = parseCustomer(fields, positionLabel);
+    if (!customer) {
+      return invalid("Customer responses require the complete customer evaluation fields and a 0-10 pain score.");
     }
   }
 
@@ -421,6 +549,7 @@ export function parseContribution(
       fields,
       decision,
       vc,
+      customer,
     },
   };
 }

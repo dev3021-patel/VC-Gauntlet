@@ -81,6 +81,12 @@ body {
 .founder { display: grid; gap: .75rem; }
 .trail, .decision { background: #f3f5fb; border-radius: .4rem; padding: .5rem; }
 .failure { border-left: 4px solid #b42318; padding-left: .75rem; color: #8f1d14; }
+.customer-evaluation { background: #eef6f4; border: 1px solid #b9d8d0; border-radius: .75rem; padding: 1rem; }
+.customer-evaluation h3 { margin-top: 0; }
+.customer-evaluation dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem 1.25rem; }
+.customer-evaluation div { min-width: 0; }
+.customer-evaluation dt { color: #245447; font-size: .72rem; letter-spacing: .08em; }
+.customer-evaluation dd { margin: .25rem 0 0; }
 
 form label, .contract li {
   display: flex;
@@ -150,4 +156,5 @@ dd { margin: 0 0 10px; }
 @media (max-width: 800px) {
   .shell { width: min(100% - 24px, 1080px); padding-top: 20px; }
   .layout { grid-template-columns: 1fr; }
+  .customer-evaluation dl { grid-template-columns: 1fr; }
 }

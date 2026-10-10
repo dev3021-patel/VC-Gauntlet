@@ -36,6 +36,29 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
     killShotQuestion: "Who renews after month three?",
     oneLineVerdict: "Promising wedge, unproven scale.",
   };
+  const customerFields = {
+    customerPainScore: 4,
+    position: "MAYBE TRY",
+    firstPersonVerdict: "As the customer, I would try this once, but I would not pay monthly yet.",
+    currentWorkaround: "I use a spreadsheet and ChatGPT.",
+    painIntensity: "LOW",
+    painDetail: "This is occasional time loss, not an urgent operating failure.",
+    switchingFriction: "MEDIUM",
+    switchingFrictionDetail: "I would need to learn and trust a new workflow.",
+    willingnessToPay: "LOW",
+    willingnessToPayDetail: "I would need repeated value before paying.",
+    trustBarrier: "HIGH",
+    trustBarrierDetail: "Weak output could lead me to spend time on the wrong idea.",
+    expectedUsageFrequency: "Rarely",
+    momTestRealityCheck: "NONE",
+    adoptionTrigger: "A funding decision with a real deadline.",
+    retentionRisk: "HIGH",
+    customerSegmentFit: "MEDIUM",
+    biggestObjection: "My existing tools are good enough.",
+    whatWouldChangeMyMind: "Founders returning weekly after real decisions.",
+    customerTest: "Interview 15 founders about their last validation decision and manual workaround.",
+    customerVerdict: "I might try it but would not pay until it replaces recurring manual work.",
+  };
   return JSON.stringify({
     summary: `${role} weighs ${extra.summary ?? "the submitted idea"}.`,
     rationale: "The argument follows from the brief, not a generic market claim.",
@@ -46,10 +69,12 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
       },
     ],
     risks: ["The first channel may not repeat."],
-    positionLabel: role === "vc" ? "MAYBE" : role === "chair" ? "pass" : "skeptical",
+    positionLabel: role === "vc" ? "MAYBE" : role === "customer" ? "MAYBE TRY" : role === "chair" ? "pass" : "skeptical",
     fields:
       role === "vc"
         ? vcFields
+        : role === "customer"
+          ? customerFields
         : role === "red_team"
           ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which claim is evidenced?"] }
           : {},
@@ -65,7 +90,7 @@ function finish(run: DebateRun, role: RoleId, raw: string): DebateRun {
   expect(started.ok).toBe(true);
   if (!started.ok) return run;
   const done = completeTurn(started.value, raw);
-  expect(done.ok).toBe(true);
+  expect(done.ok, done.ok ? "" : done.error.message).toBe(true);
   if (!done.ok) return started.value;
   return done.value;
 }
