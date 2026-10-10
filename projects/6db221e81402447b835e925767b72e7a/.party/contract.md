@@ -58,6 +58,7 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - A substantive challenge must quote an anchor that appears in the cited assessment. Source ids outside the supplied set are rejected. A simulated opinion, a copied-feature claim, a shared sentence, or an unsourced market or payment claim cannot be labeled `supported_evidence`.
 - `fields.reviewComplete` is false when a specialist assessment is missing, and the summary must say the review is not complete. `WHO SHOULD REVISE` cites a supplied position or says no revision is warranted. It does not assign a replacement score or a Chair verdict.
 - Missing credentials, timeouts, provider failures, and invalid output fail without recording a sample critique.
+- `assessmentFromMessage` preserves claim grounding labels and evidence notes, each available primary score with its native scale, and the complete recorded envelope in the existing source text. The dedicated Red Team prompt uses this source context; it does not rely on the generic later-turn renderer to recover discarded metadata. Source IDs and the Red Team output format remain unchanged.
 
 
 ## Integrated API and live UI

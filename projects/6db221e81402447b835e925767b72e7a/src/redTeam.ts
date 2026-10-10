@@ -1,6 +1,8 @@
 import type { IdeaBrief } from "./brief";
 import {
   SPECIALIST_ROLES,
+  SPECIALIST_SCORE_SPECS,
+  getPrimaryScore,
   isSpecialist,
   parseContribution,
   type ContractError,
@@ -290,13 +292,18 @@ export function assessmentFromMessage(message: DebateMessage): AssessmentSource 
     return null;
   }
   const envelope = message.envelope;
+  const score = getPrimaryScore(envelope);
+  const { field, max } = SPECIALIST_SCORE_SPECS[message.speaker];
   const text = [
     envelope.summary,
     envelope.rationale,
     envelope.positionLabel,
-    ...envelope.assumptions.map((claim) => claim.statement),
+    ...(score === null ? [] : [`Primary score (${field}): ${score}/${max}`]),
+    ...envelope.assumptions.map((claim) =>
+      `Claim (${claim.grounding}): ${claim.statement}${claim.evidenceNote ? ` Evidence note: ${claim.evidenceNote}` : ""}`),
     ...envelope.risks,
     ...Object.entries(envelope.fields).map(([key, value]) => `${key}: ${String(value)}`),
+    `Recorded envelope: ${JSON.stringify(envelope)}`,
   ].join("\n");
   return {
     id: message.id,

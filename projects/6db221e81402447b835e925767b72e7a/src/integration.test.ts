@@ -91,6 +91,52 @@ describe("integrated debate regressions", () => {
     expect(retried.body.run?.messages.at(-1)?.envelope?.vc?.score).toBe(59);
   });
 
+  it("preserves claim grounding, evidence, source IDs and native scores in the API Red Team prompt", async () => {
+    configure();
+    let run = createRun(brief);
+    for (const role of SPECIALIST_ROLES) run = fill(run, role);
+    run = { ...run, messages: run.messages.map((message) => ({ ...message, envelope: {
+      ...message.envelope!, assumptions: [...message.envelope!.assumptions,
+        { statement: "Ten clinics prepaid.", grounding: "assumption" as const },
+        { statement: "The founder targets independent clinics.", grounding: "founder_provided" as const },
+        { statement: "Four clinics returned dated intake logs.", grounding: "supported_evidence" as const, evidenceNote: "Founder supplied anonymized intake logs dated 2026-10-01." },
+        { statement: "Booking API access is unconfirmed.", grounding: "unknown" as const },
+      ],
+    } })) };
+    storeRun(run);
+    const before = structuredClone(run);
+    let prompt = "";
+    vi.stubGlobal("fetch", vi.fn(async (_url: string, init: RequestInit) => {
+      prompt = JSON.parse(String(init.body)).messages[1].content;
+      const unavailable = Object.fromEntries(["challengeStatus", "challengeTarget", "challengeSource", "challengeClaim", "challengeAnchor", "challengeWhy", "challengeMust"].map((key) => [key, Array(3).fill("unavailable")]));
+      return response(raw("red_team", undefined, { summary: "Payment and integration evidence remain provisional.", fields: {
+        ...unavailable, challengeUnavailable: Array(3).fill("No further supportable challenge was supplied."),
+        contradictionStatus: "none", contradictionAgents: [], contradictionSources: [], contradictionAnchors: [],
+        contradictionExplanation: "There is no contradiction in the supplied claims.",
+        unansweredQuestion: "Will the target buyer pay a stated price after using the current workaround?",
+        revisionWarranted: false, revisionTarget: "unavailable", revisionPosition: "unavailable",
+        revisionReason: "The supplied positions are already explicitly provisional.", missingAssessments: [], reviewComplete: true,
+      } }));
+    }));
+    const result = await call("advance", { runId: run.id });
+    expect(result.status, result.body.error).toBe(200);
+    expect(result.body.run?.messages.at(-1)?.speaker).toBe("red_team");
+    expect(result.body.run?.messages.slice(0, 4)).toEqual(before.messages);
+    for (const message of before.messages) {
+      const source = prompt.slice(prompt.indexOf(`- id: ${message.id}`)).split("\n- id: ")[0];
+      expect(source).toContain(`role: ${message.speaker}`);
+      expect(source).toContain(JSON.stringify(message.envelope));
+      expect(source).toContain("Claim (assumption): Ten clinics prepaid.");
+      expect(source).toContain("Claim (founder_provided): The founder targets independent clinics.");
+      expect(source).toContain("Claim (supported_evidence): Four clinics returned dated intake logs. Evidence note: Founder supplied anonymized intake logs dated 2026-10-01.");
+      expect(source).toContain("Claim (unknown): Booking API access is unconfirmed.");
+    }
+    for (const score of ["score): 58/100", "adoptionScore): 5/10", "threatScore): 2/10", "feasibilityScore): 7/10"]) {
+      expect(prompt).toContain(`Primary score (${score}`);
+    }
+    expect(run).toEqual(before);
+  });
+
   it("enforces the Competitor's incumbent grounding through the actual API", async () => {
     configure();
     let run = createRun(brief);
