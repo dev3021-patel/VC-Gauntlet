@@ -5,9 +5,11 @@ import { beginTurn, completeTurn, createRun, failTurn, requestVerdict, retryTurn
 import { generateContribution, readProviderConfig, createOpenAiClient } from "./provider";
 import { generateRedTeamReview, redTeamRequestFromRun } from "./redTeam";
 import { ROLE_INSTRUCTIONS } from "./roles";
+import { registerChair, runChairTurn } from "./chair";
 
 const runs = new Map<string, DebateRun>();
 const registry = createRoleRegistry(ROLE_INSTRUCTIONS);
+registerChair(registry);
 
 export function storeRun(run: DebateRun) { runs.set(run.id, run); }
 
@@ -73,6 +75,11 @@ export async function handleDebateApi(req: IncomingMessage, res: ServerResponse)
     storeRun(started.value);
     const config = readProviderConfig(); if (!config.ok) { const failed = failTurn(started.value, config.error); storeRun(failed); return send(res, 503, { error: config.error.message, run: failed }), true; }
     const client = createOpenAiClient(config.value);
+    if (role === "chair") {
+      const completed = await runChairTurn(current, client, registry);
+      storeRun(completed.value);
+      return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;
+    }
     const generated = role === "red_team"
       ? await generateRedTeamReview(redTeamRequestFromRun(started.value), client, registry)
       : await generateContribution(started.value, role, started.value.lock!.stage, registry, client);

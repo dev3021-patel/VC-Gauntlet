@@ -28,7 +28,8 @@ export interface DebateFailure {
     | "missing_credentials"
     | "provider_failure"
     | "timeout"
-    | "role_not_configured";
+    | "role_not_configured"
+    | "incomplete_context";
   message: string;
   phase?: Phase;
   role?: RoleId;
