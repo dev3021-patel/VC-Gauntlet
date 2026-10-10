@@ -13,6 +13,7 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 
 `src/vc.ts` registers the VC persona with `registerVcAgent(registry)` and runs one turn with `runVcTurn(run, client, registry)`. It reuses the shared envelope, `generateContribution`, and `completeTurn`; it does not define a second contract.
 
+- Opening and rebuttal scorecards include `marketSizeConcern` and `defensibilityConcern`. `first100Users` is the distribution question.
 - The phase picks the stage: assessment, rebuttal, or founder response.
 - A rebuttal must copy a phrase from the Red Team challenge into `fields.challengeReference`, and `changed` must match whether score or position differs from the opening. The opening stays in the transcript.
 - A founder response must keep the current VC position. Only a rebuttal can change it.

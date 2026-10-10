@@ -9,8 +9,8 @@ import {
   providerStatus,
   readProviderConfig,
   sharedRegistry,
-  VC_ROLE_INSTRUCTIONS,
 } from "./provider";
+import { VC_INSTRUCTIONS } from "./vc";
 
 function run() {
   const brief = validateBrief({
@@ -44,11 +44,11 @@ describe("provider access", () => {
 
   it("registers VC instructions and does not turn a provider failure into a sample card", async () => {
     const instructions = sharedRegistry.instructions("vc");
-    expect(instructions).toBe(VC_ROLE_INSTRUCTIONS);
+    expect(instructions).toBe(VC_INSTRUCTIONS);
     expect(instructions).toContain("marketSizeConcern");
     expect(instructions).toContain("defensibilityConcern");
     expect(instructions).toContain("rebuttal");
-    expect(instructions).toContain("founder reply");
+    expect(instructions).toContain("Founder response");
     const prompt = buildGenerationPrompt(run(), "vc", "assessment", sharedRegistry);
     expect(prompt.ok).toBe(true);
     if (!prompt.ok) return;
