@@ -18,24 +18,29 @@ import {
 } from "./debate";
 import { buildGenerationPrompt, sharedRegistry, type ModelClient } from "./provider";
 
-export const RED_TEAM_INSTRUCTIONS = `You are the Red Team in Venture Gauntlet. You do not pitch the startup and you do not issue a verdict. You review the other agents' reasoning: unsupported assumptions, contradictions, weak evidence, over-optimism, and unsupported pessimism.
+export const RED_TEAM_INSTRUCTIONS = `You are the Red Team in Venture Gauntlet. You do not pitch the startup and you do not issue GO, PIVOT, or KILL. You review the other agents' reasoning: unsupported assumptions, contradictions, weak evidence, over-optimism, and unsupported pessimism.
 
-Use only the founder brief, the SOURCE CONTRIBUTIONS block, and any founder defense in this request. Do not fetch conversations. Do not carry claims from a previous idea. Do not invent missing agents, scores, quotes, contradictions, or evidence.
+Use only the founder brief, the SOURCE CONTRIBUTIONS block, and any founder defense in this request. Do not fetch conversations. Do not carry claims from a previous idea. Do not invent missing agents, scores, quotes, contradictions, stronger claims, or evidence to fill a slot.
 
 A simulated or hypothetical customer is not observed willingness to pay. Ability to copy or ship a feature is not proof of displacement. Two agents repeating one sentence are not independent confirmation. An unsourced market size or payment claim is not supported evidence. If founder defense supplies a fact, do not say that fact is absent.
 
-Return JSON with summary, rationale, assumptions, risks, positionLabel, and fields. summary is one sentence. If any specialist assessment is missing, summary must name each missing role and include the phrase "not a complete committee review". If all four assessments are present, do not use that phrase. positionLabel is "challenge" when the review is complete and "partial" when it is not. Never use invest, pivot, or pass. Never return decision, verdict, citations, sources, replacementScore, revisedScore, or newScore.
+Return JSON with summary, rationale, assumptions, risks, positionLabel, and fields. summary is one sentence. If any specialist assessment is missing, summary must name each missing role and include the phrase "not a complete committee review". If all four assessments are present, do not use that phrase. positionLabel is "challenge" when the review is complete and "partial" when it is not. Never use invest, pivot, or pass. Never return decision, verdict, citations, sources, replacementScore, revisedScore, or newScore. Do not use the old labels BIGGEST CONTRADICTION, MOST IMPORTANT UNANSWERED QUESTION, or WHO SHOULD REVISE.
 
-fields.challengeStatus, challengeTarget, challengeSource, challengeClaim, challengeAnchor, challengeWhy, challengeMust, and challengeUnavailable are arrays of exactly three strings, in slot order.
-- substantive: challengeStatus "substantive"; challengeTarget is vc, customer, competitor, or engineer; challengeSource is that assessment's id; challengeAnchor is a verbatim fragment of at least 8 characters from that assessment; challengeClaim contains that anchor; challengeWhy and challengeMust are specific; challengeUnavailable is "unavailable".
-- unavailable: challengeStatus "unavailable"; the other six values are "unavailable"; challengeUnavailable is the reason. Use this when a third supportable challenge does not exist. Do not invent a claim to fill the slot.
+fields.reasoningQuality is exactly STRONG, MEDIUM, or WEAK.
+fields.biggestAssumptionSource is a supplied assessment id. fields.biggestAssumptionAnchor is a verbatim fragment of at least 8 characters from that assessment. fields.biggestAssumption states why that assumption is dangerous.
+fields.challengeStatus, challengeTarget, challengeSource, challengeClaim, challengeAnchor, challengeWhy, challengeMust, challengeRevision, and challengeUnavailable are arrays of exactly three strings.
+- substantive: challengeTarget is vc, customer, competitor, or engineer; challengeSource is that assessment's id; challengeAnchor is a verbatim fragment of at least 8 characters; challengeClaim contains that anchor; challengeWhy, challengeMust, and challengeRevision are specific. challengeRevision is an actionable change to the claim, not a replacement score. challengeUnavailable is "unavailable".
+- unavailable: every other challenge value is "unavailable" and challengeUnavailable is the reason. Do not invent a claim to fill the slot.
 
-fields.contradictionStatus is "present" or "none".
-- present: contradictionAgents, contradictionSources, and contradictionAnchors each have two entries. The anchors must actually oppose (for example huge market versus will not pay, or easy to build versus incumbents can copy). contradictionExplanation names the disagreement.
-- none: those arrays are empty and contradictionExplanation explicitly says there is no contradiction.
+The contradiction map has exactly two slots. fields.contradictionSlotStatus, contradictionAgentA, contradictionAgentB, contradictionSourceA, contradictionSourceB, contradictionAnchorA, contradictionAnchorB, contradictionWhy, contradictionStronger, and contradictionEvidence are arrays of exactly two strings.
+- present: name two different supplied agents, quote opposing anchors, explain the conflict, and name the evidence needed. contradictionStronger is "inconclusive" unless founder defense contains the winning anchor; then it may be "A" or "B". Do not force a winner.
+- none: status "none", agents and anchors "unavailable", contradictionWhy explicitly says there is no contradiction, contradictionStronger and contradictionEvidence are "unavailable". Use this for a second slot when only one conflict exists.
 
-fields.unansweredQuestion is one question ending in "?".
-fields.revisionWarranted is boolean. If true, revisionTarget is a supplied role and revisionPosition is a score or position that appears in that assessment. revisionReason says why it should be provisional or revised. Do not propose a replacement number. If false, revisionTarget and revisionPosition are "unavailable" and revisionReason says why no revision is warranted.
+fields.overconfidentStatus is "present" or "none". If none, say none warranted and set overconfidentAgent to "unavailable". If present, cite overconfidentSource and overconfidentAnchor from a supplied assessment and explain the overconfidence. Do not name an agent merely to fill the slot.
+fields.underweightedRisk and fields.missingEvidence are specific. If assessments are missing, missingEvidence must name those roles.
+fields.unansweredQuestion is one decision-blocking question ending in "?".
+fields.readinessVerdict is one sentence. It says the committee needs more evidence or is ready for a final verdict. It must not say GO, PIVOT, or KILL.
+fields.revisionWarranted is boolean. If true, revisionTarget is a supplied role and revisionPosition appears in that assessment. revisionReason explains why. Do not propose a replacement number. If false, revisionTarget and revisionPosition are "unavailable" and revisionReason says no revision is warranted.
 fields.missingAssessments lists absent role ids in order vc, customer, competitor, engineer. fields.reviewComplete is true only when none are missing.
 assumptions use founder_provided, supported_evidence, assumption, or unknown. supported_evidence needs evidenceNote and only for facts the founder or a cited observation actually supplied. Label simulated preferences, copyability, correlated wording, and unsourced market or payment claims as assumption or unknown. risks is a non-empty array.`;
 
@@ -47,14 +52,25 @@ const ROLE_LABEL: Record<SpecialistRole, string> = {
 };
 
 const HEADERS = [
+  "# RED TEAM AGENT OUTPUT",
   "RED TEAM SUMMARY:",
+  "OVERALL REASONING QUALITY:",
+  "BIGGEST UNSUPPORTED ASSUMPTION:",
+  "AGENT CONTRADICTION MAP:",
+  "Contradiction 1:",
+  "Contradiction 2:",
   "CHALLENGE 1:",
   "CHALLENGE 2:",
   "CHALLENGE 3:",
-  "BIGGEST CONTRADICTION:",
-  "MOST IMPORTANT UNANSWERED QUESTION:",
-  "WHO SHOULD REVISE:",
+  "OVERCONFIDENT AGENT:",
+  "UNDERWEIGHTED RISK:",
+  "MISSING EVIDENCE:",
+  "WHO SHOULD REVISE THEIR SCORE:",
+  "DECISION-BLOCKING QUESTION:",
+  "RED TEAM VERDICT:",
 ] as const;
+
+const QUALITIES = ["STRONG", "MEDIUM", "WEAK"] as const;
 
 const OPPOSITES: Array<[RegExp[], RegExp[]]> = [
   [
@@ -97,15 +113,33 @@ interface ChallengeSlot {
   anchor: string;
   why: string;
   must: string;
+  revision: string;
   reason: string;
+}
+
+interface ContradictionSlot {
+  status: "present" | "none";
+  agentA: string;
+  agentB: string;
+  claimA: string;
+  claimB: string;
+  why: string;
+  stronger: string;
+  evidence: string;
 }
 
 interface Normalized {
   summary: string;
+  quality: "STRONG" | "MEDIUM" | "WEAK";
+  biggestAssumption: string;
+  contradictions: ContradictionSlot[];
   challenges: ChallengeSlot[];
-  contradiction: string;
+  overconfident: string;
+  underweightedRisk: string;
+  missingEvidence: string;
   question: string;
   revision: string;
+  readiness: string;
   missing: SpecialistRole[];
   reviewComplete: boolean;
   targetedRoles: SpecialistRole[];
@@ -307,8 +341,35 @@ export function assessmentFromMessage(message: DebateMessage): AssessmentSource 
   };
 }
 
+function contradictionLines(slot: ContradictionSlot, index: number): string[] {
+  return [
+    `Contradiction ${index}:`,
+    `- Agent A Claim: ${slot.claimA}`,
+    `- Agent B Claim: ${slot.claimB}`,
+    `- Why These Conflict: ${slot.why}`,
+    `- Which Claim Seems Stronger: ${slot.stronger}`,
+    `- Evidence Needed: ${slot.evidence}`,
+    "",
+  ];
+}
+
 export function renderRedTeamCard(review: Normalized): string {
-  const lines = ["RED TEAM SUMMARY:", review.summary, ""];
+  const lines = [
+    "# RED TEAM AGENT OUTPUT",
+    "",
+    "RED TEAM SUMMARY:",
+    review.summary,
+    "",
+    "OVERALL REASONING QUALITY:",
+    review.quality,
+    "",
+    "BIGGEST UNSUPPORTED ASSUMPTION:",
+    review.biggestAssumption,
+    "",
+    "AGENT CONTRADICTION MAP:",
+    "",
+  ];
+  review.contradictions.forEach((slot, index) => lines.push(...contradictionLines(slot, index + 1)));
   review.challenges.forEach((challenge, index) => {
     lines.push(`CHALLENGE ${index + 1}:`);
     if (challenge.status === "unavailable") {
@@ -316,17 +377,22 @@ export function renderRedTeamCard(review: Normalized): string {
       lines.push("Specific Claim: unavailable");
       lines.push(`Why It Is Weak: unavailable — ${challenge.reason}`);
       lines.push("What Must Be True For This Claim To Hold: unavailable");
+      lines.push("Suggested Revision: unavailable");
     } else {
       lines.push(`Target Agent: ${ROLE_LABEL[challenge.target!]}`);
       lines.push(`Specific Claim: ${challenge.claim}`);
       lines.push(`Why It Is Weak: ${challenge.why}`);
       lines.push(`What Must Be True For This Claim To Hold: ${challenge.must}`);
+      lines.push(`Suggested Revision: ${challenge.revision}`);
     }
     lines.push("");
   });
-  lines.push("BIGGEST CONTRADICTION:", review.contradiction, "");
-  lines.push("MOST IMPORTANT UNANSWERED QUESTION:", review.question, "");
-  lines.push("WHO SHOULD REVISE:", review.revision);
+  lines.push("OVERCONFIDENT AGENT:", review.overconfident, "");
+  lines.push("UNDERWEIGHTED RISK:", review.underweightedRisk, "");
+  lines.push("MISSING EVIDENCE:", review.missingEvidence, "");
+  lines.push("WHO SHOULD REVISE THEIR SCORE:", review.revision, "");
+  lines.push("DECISION-BLOCKING QUESTION:", review.question, "");
+  lines.push("RED TEAM VERDICT:", review.readiness);
   return lines.join("\n");
 }
 
@@ -390,8 +456,9 @@ function normalize(request: RedTeamRequest, parsed: unknown): RedTeamResult | { 
   const anchor = stringList(fields.challengeAnchor, 3);
   const why = stringList(fields.challengeWhy, 3);
   const must = stringList(fields.challengeMust, 3);
+  const revisionText = stringList(fields.challengeRevision, 3);
   const unavailable = stringList(fields.challengeUnavailable, 3);
-  if (!status || !target || !source || !claim || !anchor || !why || !must || !unavailable) {
+  if (!status || !target || !source || !claim || !anchor || !why || !must || !revisionText || !unavailable) {
     return invalid("Red Team must return three challenge slots.");
   }
 
@@ -411,6 +478,7 @@ function normalize(request: RedTeamRequest, parsed: unknown): RedTeamResult | { 
         anchor: "unavailable",
         why: "unavailable",
         must: "unavailable",
+        revision: "unavailable",
         reason: unavailable[i],
       });
       continue;
@@ -428,8 +496,11 @@ function normalize(request: RedTeamRequest, parsed: unknown): RedTeamResult | { 
       return invalid("Challenge slots must not repeat the same claim.");
     }
     seenAnchors.add(anchor[i].toLowerCase());
-    if (why[i].length < 20 || must[i].length < 20) {
-      return invalid("Each substantive challenge needs a weakness and a condition.");
+    if (why[i].length < 20 || must[i].length < 20 || revisionText[i].length < 12) {
+      return invalid("Each substantive challenge needs a weakness, a condition, and a suggested revision.");
+    }
+    if (revisionText[i] === "unavailable" || /replacement score|should be \d+|change (?:the|their) score to \d+/i.test(revisionText[i])) {
+      return invalid("A suggested revision must be actionable and cannot assign a replacement score.");
     }
     if (ignoresDefense(defense, why[i])) {
       return invalid("A challenge cannot deny founder defense that was supplied.");
@@ -442,50 +513,105 @@ function normalize(request: RedTeamRequest, parsed: unknown): RedTeamResult | { 
       anchor: anchor[i],
       why: why[i],
       must: must[i],
+      revision: revisionText[i],
       reason: "",
     });
   }
 
-  const contradictionStatus = fields.contradictionStatus;
-  const agents = stringList(fields.contradictionAgents);
-  const contradictionSources = stringList(fields.contradictionSources);
-  const contradictionAnchors = stringList(fields.contradictionAnchors);
-  const explanation =
-    typeof fields.contradictionExplanation === "string" ? fields.contradictionExplanation.trim() : "";
-  if (!agents || !contradictionSources || !contradictionAnchors || !explanation) {
-    return invalid("Contradiction output is incomplete.");
+  const quality = typeof fields.reasoningQuality === "string" ? fields.reasoningQuality.trim() : "";
+  if (!(QUALITIES as readonly string[]).includes(quality)) {
+    return invalid("OVERALL REASONING QUALITY must be STRONG, MEDIUM, or WEAK.");
   }
-  let contradiction = "";
-  if (contradictionStatus === "none") {
-    if (agents.length !== 0 || contradictionSources.length !== 0 || contradictionAnchors.length !== 0) {
-      return invalid("A no-contradiction result cannot name opposing agents.");
+  const assumptionSource = typeof fields.biggestAssumptionSource === "string" ? fields.biggestAssumptionSource.trim() : "";
+  const assumptionAnchor = typeof fields.biggestAssumptionAnchor === "string" ? fields.biggestAssumptionAnchor.trim() : "";
+  const assumptionText = typeof fields.biggestAssumption === "string" ? fields.biggestAssumption.trim() : "";
+  let biggestAssumption = "";
+  if (request.assessments.length === 0) {
+    if (!/unavailable/i.test(assumptionText)) {
+      return invalid("A review with no assessments cannot invent an unsupported assumption.");
     }
-    if (!/no contradiction/i.test(explanation)) {
-      return invalid("If no contradiction exists, say so explicitly.");
+    biggestAssumption = assumptionText;
+  } else {
+    const cited = ids.get(assumptionSource);
+    if (!cited || !hasAnchor(blob(cited), assumptionAnchor) || !assumptionText.toLowerCase().includes(assumptionAnchor.toLowerCase())) {
+      return invalid("The biggest unsupported assumption must quote a supplied claim.");
     }
-    contradiction = explanation;
-  } else if (contradictionStatus === "present") {
-    if (agents.length !== 2 || contradictionSources.length !== 2 || contradictionAnchors.length !== 2) {
-      return invalid("A contradiction must name exactly two supplied agents.");
+    biggestAssumption = `${ROLE_LABEL[cited.role]}: ${assumptionText}`;
+  }
+
+  const slotStatus = stringList(fields.contradictionSlotStatus, 2);
+  const agentA = stringList(fields.contradictionAgentA, 2);
+  const agentB = stringList(fields.contradictionAgentB, 2);
+  const sourceA = stringList(fields.contradictionSourceA, 2);
+  const sourceB = stringList(fields.contradictionSourceB, 2);
+  const anchorA = stringList(fields.contradictionAnchorA, 2);
+  const anchorB = stringList(fields.contradictionAnchorB, 2);
+  const conflictWhy = stringList(fields.contradictionWhy, 2);
+  const stronger = stringList(fields.contradictionStronger, 2);
+  const evidenceNeeded = stringList(fields.contradictionEvidence, 2);
+  if (!slotStatus || !agentA || !agentB || !sourceA || !sourceB || !anchorA || !anchorB || !conflictWhy || !stronger || !evidenceNeeded) {
+    return invalid("The contradiction map must contain two slots.");
+  }
+  const contradictions: ContradictionSlot[] = [];
+  for (let i = 0; i < 2; i += 1) {
+    if (slotStatus[i] === "none") {
+      if (!/no contradiction/i.test(conflictWhy[i])) {
+        return invalid("If no contradiction exists, say so explicitly.");
+      }
+      if (stronger[i] !== "unavailable" || evidenceNeeded[i] !== "unavailable") {
+        return invalid("A missing contradiction cannot force a stronger claim.");
+      }
+      contradictions.push({
+        status: "none",
+        agentA: "unavailable",
+        agentB: "unavailable",
+        claimA: "unavailable",
+        claimB: "unavailable",
+        why: conflictWhy[i],
+        stronger: "unavailable",
+        evidence: "unavailable",
+      });
+      continue;
     }
-    const pair = [0, 1].map((index) => {
-      const role = roleFrom(agents[index]);
-      const cited = ids.get(contradictionSources[index]);
-      return { role, cited, anchor: contradictionAnchors[index] };
-    });
-    if (pair.some((item) => !item.role || !item.cited || item.cited.role !== item.role)) {
+    if (slotStatus[i] !== "present") return invalid("Contradiction status must be present or none.");
+    const leftRole = roleFrom(agentA[i]);
+    const rightRole = roleFrom(agentB[i]);
+    const left = ids.get(sourceA[i]);
+    const right = ids.get(sourceB[i]);
+    if (!leftRole || !rightRole || !left || !right || left.role !== leftRole || right.role !== rightRole) {
       return invalid("A contradiction cites an assessment that was not supplied.");
     }
-    if (pair[0].role === pair[1].role) return invalid("A contradiction needs two agents.");
-    if (pair.some((item) => !hasAnchor(blob(item.cited!), item.anchor))) {
+    if (leftRole === rightRole) return invalid("A contradiction needs two agents.");
+    if (!hasAnchor(blob(left), anchorA[i]) || !hasAnchor(blob(right), anchorB[i])) {
       return invalid("A contradiction must quote the supplied claims it opposes.");
     }
-    if (!opposes(pair[0].anchor, pair[1].anchor)) {
+    if (!opposes(anchorA[i], anchorB[i])) {
       return invalid("No contradiction is present in the quoted claims.");
     }
-    contradiction = `${ROLE_LABEL[pair[0].role!]} and ${ROLE_LABEL[pair[1].role!]} disagree. ${ROLE_LABEL[pair[0].role!]} claims "${pair[0].anchor}" while ${ROLE_LABEL[pair[1].role!]} claims "${pair[1].anchor}". ${explanation}`;
-  } else {
-    return invalid("contradictionStatus must be present or none.");
+    if (conflictWhy[i].length < 12 || evidenceNeeded[i].length < 12) {
+      return invalid("A contradiction must explain the conflict and the evidence needed.");
+    }
+    const defenseBacksA = defense.toLowerCase().includes(anchorA[i].toLowerCase());
+    const defenseBacksB = defense.toLowerCase().includes(anchorB[i].toLowerCase());
+    if (stronger[i] === "A" && !defenseBacksA) {
+      return invalid("Which claim seems stronger must follow supplied evidence, not a forced preference.");
+    }
+    if (stronger[i] === "B" && !defenseBacksB) {
+      return invalid("Which claim seems stronger must follow supplied evidence, not a forced preference.");
+    }
+    if (!["A", "B", "inconclusive"].includes(stronger[i])) {
+      return invalid("Which claim seems stronger must be A, B, or inconclusive.");
+    }
+    contradictions.push({
+      status: "present",
+      agentA: ROLE_LABEL[leftRole],
+      agentB: ROLE_LABEL[rightRole],
+      claimA: `${ROLE_LABEL[leftRole]}: "${anchorA[i]}"`,
+      claimB: `${ROLE_LABEL[rightRole]}: "${anchorB[i]}"`,
+      why: `${ROLE_LABEL[leftRole]} and ${ROLE_LABEL[rightRole]} disagree. ${conflictWhy[i]}`,
+      stronger: stronger[i] === "inconclusive" ? "inconclusive" : `${stronger[i] === "A" ? ROLE_LABEL[leftRole] : ROLE_LABEL[rightRole]} — supplied founder defense supports that claim`,
+      evidence: evidenceNeeded[i],
+    });
   }
 
   const question = typeof fields.unansweredQuestion === "string" ? fields.unansweredQuestion.trim() : "";
@@ -518,6 +644,40 @@ function normalize(request: RedTeamRequest, parsed: unknown): RedTeamResult | { 
     revision += ` Missing assessments: ${missing.map((role) => ROLE_LABEL[role]).join(", ")}.`;
   }
 
+  const overStatus = fields.overconfidentStatus;
+  const overWhy = typeof fields.overconfidentWhy === "string" ? fields.overconfidentWhy.trim() : "";
+  let overconfident = "";
+  if (overStatus === "none") {
+    if (!/none warranted|no agent is overconfident/i.test(overWhy)) {
+      return invalid("If no agent is overconfident, say none warranted.");
+    }
+    overconfident = overWhy;
+  } else if (overStatus === "present") {
+    const overRole = roleFrom(typeof fields.overconfidentAgent === "string" ? fields.overconfidentAgent : "");
+    const overSource = ids.get(typeof fields.overconfidentSource === "string" ? fields.overconfidentSource.trim() : "");
+    const overAnchor = typeof fields.overconfidentAnchor === "string" ? fields.overconfidentAnchor.trim() : "";
+    if (!overRole || !overSource || overSource.role !== overRole || !hasAnchor(blob(overSource), overAnchor) || overWhy.length < 20) {
+      return invalid("An overconfident agent must be a supplied role with a quoted claim.");
+    }
+    overconfident = `${ROLE_LABEL[overRole]} is overconfident because ${overWhy}`;
+  } else {
+    return invalid("overconfidentStatus must be present or none.");
+  }
+
+  const underweightedRisk = typeof fields.underweightedRisk === "string" ? fields.underweightedRisk.trim() : "";
+  const missingEvidence = typeof fields.missingEvidence === "string" ? fields.missingEvidence.trim() : "";
+  if (underweightedRisk.length < 20) return invalid("UNDERWEIGHTED RISK must name a specific risk.");
+  if (missingEvidence.length < 20) return invalid("MISSING EVIDENCE must name the evidence still required.");
+  for (const role of missing) {
+    if (!missingEvidence.includes(ROLE_LABEL[role])) {
+      return invalid("Missing evidence must name each missing assessment.");
+    }
+  }
+  const readiness = typeof fields.readinessVerdict === "string" ? fields.readinessVerdict.trim() : "";
+  if (!oneSentence(readiness) || /\b(GO|PIVOT|KILL)\b/.test(readiness) || !/more evidence|ready for a final verdict/i.test(readiness)) {
+    return invalid("RED TEAM VERDICT must be one sentence about readiness and must not issue GO, PIVOT, or KILL.");
+  }
+
   const targeted = [
     ...new Set(
       challenges.flatMap((challenge) => (challenge.target ? [challenge.target] : [])),
@@ -530,10 +690,16 @@ function normalize(request: RedTeamRequest, parsed: unknown): RedTeamResult | { 
     ok: true,
     value: {
       summary,
+      quality: quality as Normalized["quality"],
+      biggestAssumption,
+      contradictions,
       challenges,
-      contradiction,
+      overconfident,
+      underweightedRisk,
+      missingEvidence,
       question,
       revision,
+      readiness,
       missing,
       reviewComplete,
       targetedRoles: targeted.length > 0 ? targeted : request.assessments.map((source) => source.role),
@@ -571,10 +737,15 @@ function rewrite(review: Normalized): { raw: string; presentation: string } {
       challengeAnchor: slot((challenge) => challenge.anchor),
       challengeWhy: slot((challenge) => challenge.why),
       challengeMust: slot((challenge) => challenge.must),
+      challengeRevision: slot((challenge) => challenge.revision),
       challengeUnavailable: slot((challenge) => challenge.reason || "unavailable"),
       revisionWarranted: review.revisionWarranted,
-      contradiction: review.contradiction,
+      reasoningQuality: review.quality,
+      biggestAssumption: review.biggestAssumption,
+      underweightedRisk: review.underweightedRisk,
+      missingEvidence: review.missingEvidence,
       unansweredQuestion: review.question,
+      readinessVerdict: review.readiness,
       revision: review.revision,
     },
   });
@@ -729,10 +900,22 @@ export function presentationOrderValid(presentation: string): boolean {
   const first = presentation.indexOf("CHALLENGE 1:");
   const second = presentation.indexOf("CHALLENGE 2:");
   const body = presentation.slice(first, second);
+  const mapStart = presentation.indexOf("Contradiction 1:");
+  const mapEnd = presentation.indexOf("Contradiction 2:");
+  const map = presentation.slice(mapStart, mapEnd);
   return (
     body.includes("Target Agent:") &&
     body.includes("Specific Claim:") &&
     body.includes("Why It Is Weak:") &&
-    body.includes("What Must Be True For This Claim To Hold:")
+    body.includes("What Must Be True For This Claim To Hold:") &&
+    body.includes("Suggested Revision:") &&
+    map.includes("- Agent A Claim:") &&
+    map.includes("- Agent B Claim:") &&
+    map.includes("- Why These Conflict:") &&
+    map.includes("- Which Claim Seems Stronger:") &&
+    map.includes("- Evidence Needed:") &&
+    !presentation.split("\n").some((line) =>
+      ["BIGGEST CONTRADICTION:", "MOST IMPORTANT UNANSWERED QUESTION:", "WHO SHOULD REVISE:"].includes(line),
+    )
   );
 }

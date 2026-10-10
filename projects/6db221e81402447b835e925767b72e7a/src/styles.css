@@ -151,4 +151,5 @@ dd { margin: 0 0 10px; }
   .shell { width: min(100% - 24px, 1080px); padding-top: 20px; }
   .layout { grid-template-columns: 1fr; }
 }
-.chair-output { white-space: pre-wrap; overflow-wrap: anywhere; }
+.chair-output, .red-team-output { white-space: pre-wrap; overflow-wrap: anywhere; }
+.red-team-output { margin: .75rem 0 0; font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; font-size: .82rem; line-height: 1.45; }

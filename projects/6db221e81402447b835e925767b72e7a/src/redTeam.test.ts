@@ -76,16 +76,38 @@ function baseFields(extra: Record<string, unknown> = {}) {
     challengeAnchor: ["unavailable", "unavailable", "unavailable"],
     challengeWhy: ["unavailable", "unavailable", "unavailable"],
     challengeMust: ["unavailable", "unavailable", "unavailable"],
+    challengeRevision: [
+      "Mark the claim provisional until a sourced comparison exists.",
+      "Mark the claim provisional until a sourced comparison exists.",
+      "Mark the claim provisional until a sourced comparison exists.",
+    ],
     challengeUnavailable: [
       "No further supportable challenge was supplied.",
       "No further supportable challenge was supplied.",
       "No further supportable challenge was supplied.",
     ],
-    contradictionStatus: "none",
-    contradictionAgents: [],
-    contradictionSources: [],
-    contradictionAnchors: [],
-    contradictionExplanation: "There is no contradiction in the supplied claims.",
+    reasoningQuality: "WEAK",
+    biggestAssumptionSource: "vc-1",
+    biggestAssumptionAnchor: "total market is $50B",
+    biggestAssumption: "The total market is $50B is treated as reachable demand.",
+    contradictionSlotStatus: ["none", "none"],
+    contradictionAgentA: ["unavailable", "unavailable"],
+    contradictionAgentB: ["unavailable", "unavailable"],
+    contradictionSourceA: ["unavailable", "unavailable"],
+    contradictionSourceB: ["unavailable", "unavailable"],
+    contradictionAnchorA: ["unavailable", "unavailable"],
+    contradictionAnchorB: ["unavailable", "unavailable"],
+    contradictionWhy: [
+      "There is no contradiction in the supplied claims.",
+      "There is no contradiction in a second pair of supplied claims.",
+    ],
+    contradictionStronger: ["unavailable", "unavailable"],
+    contradictionEvidence: ["unavailable", "unavailable"],
+    overconfidentStatus: "none",
+    overconfidentWhy: "No agent is overconfident beyond the challenged claims. None warranted.",
+    underweightedRisk: "Willingness to pay at a stated price is still untested.",
+    missingEvidence: "A paid comparison with the current workaround is still missing.",
+    readinessVerdict: "The committee needs more evidence before a final verdict.",
     unansweredQuestion: "Will the target buyer pay a stated price after using the current workaround?",
     revisionWarranted: false,
     revisionTarget: "unavailable",
@@ -139,11 +161,19 @@ function clinicReply(summary = "The fundability claim treats an unsourced market
       "An incumbent must ship an equivalent and take the same buyers.",
     ],
     challengeUnavailable: ["unavailable", "unavailable", "unavailable"],
-    contradictionStatus: "present",
-    contradictionAgents: ["vc", "customer"],
-    contradictionSources: ["vc-1", "cu-1"],
-    contradictionAnchors: ["total market is $50B", "WILLINGNESS TO PAY: LOW"],
-    contradictionExplanation: "A huge market claim does not survive a low willingness-to-pay claim.",
+    contradictionSlotStatus: ["present", "none"],
+    contradictionAgentA: ["vc", "unavailable"],
+    contradictionAgentB: ["customer", "unavailable"],
+    contradictionSourceA: ["vc-1", "unavailable"],
+    contradictionSourceB: ["cu-1", "unavailable"],
+    contradictionAnchorA: ["total market is $50B", "unavailable"],
+    contradictionAnchorB: ["WILLINGNESS TO PAY: LOW", "unavailable"],
+    contradictionWhy: [
+      "A huge market claim does not survive a low willingness-to-pay claim.",
+      "There is no contradiction in a second pair of supplied claims.",
+    ],
+    contradictionStronger: ["inconclusive", "unavailable"],
+    contradictionEvidence: ["A sourced buyer count and a stated-price test are needed.", "unavailable"],
     revisionWarranted: true,
     revisionTarget: "customer",
     revisionPosition: "4/10",
@@ -156,7 +186,8 @@ describe("Red Team role", () => {
     expect(registry().instructions("red_team")).toBe(RED_TEAM_INSTRUCTIONS);
     expect(RED_TEAM_INSTRUCTIONS).toContain("simulated");
     expect(RED_TEAM_INSTRUCTIONS).toContain("not proof of displacement");
-    expect(RED_TEAM_INSTRUCTIONS).not.toContain("sample critique");
+    expect(RED_TEAM_INSTRUCTIONS).toContain("reasoningQuality");
+    expect(RED_TEAM_INSTRUCTIONS).toContain("do not issue GO, PIVOT, or KILL");
     const prompt = buildRedTeamPrompt(request(clinicSources), registry());
     expect(prompt.ok).toBe(true);
     if (!prompt.ok) return;
@@ -165,7 +196,7 @@ describe("Red Team role", () => {
     expect(prompt.system).toContain("INVEST, MAYBE, or PASS");
   });
 
-  it("returns a provider envelope with the seven sections in order", async () => {
+  it("returns a provider envelope in the expanded template order", async () => {
     const result = await generateRedTeamReview(request(clinicSources), client(clinicReply()), registry());
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -181,10 +212,18 @@ describe("Red Team role", () => {
     expect(envelope.value.fields.sourceRefs).toEqual(["vc-1", "cu-1", "co-1"]);
     expect(envelope.value.fields.targetedRoles).toEqual(["vc", "customer", "competitor"]);
     expect(String(envelope.value.fields.questions)).toContain("stated price");
+    expect(result.presentation).toContain("# RED TEAM AGENT OUTPUT");
+    expect(result.presentation).toContain("OVERALL REASONING QUALITY:\nWEAK");
+    expect(result.presentation).toContain("Suggested Revision:");
     expect(result.presentation).toContain("Target Agent: VC");
     expect(result.presentation).toContain("VC and Customer disagree");
+    expect(result.presentation).toContain("Which Claim Seems Stronger: inconclusive");
+    expect(result.presentation).toContain("WHO SHOULD REVISE THEIR SCORE:");
     expect(result.presentation).toContain("Customer should revise 4/10");
+    expect(result.presentation).toContain("DECISION-BLOCKING QUESTION:");
+    expect(result.presentation).toContain("RED TEAM VERDICT:");
     expect(result.presentation).not.toContain("replacement score of");
+    expect(result.presentation.split("\n")).not.toContain("WHO SHOULD REVISE:");
   });
 
   it("accepts two challenges against one agent and an unavailable third slot", async () => {
@@ -254,6 +293,7 @@ describe("Red Team role", () => {
           "Competitor adds no distinct supportable claim beyond copyability.",
           "Engineer was not supplied, so no engineering claim can be challenged.",
         ],
+        missingEvidence: "Engineer was not supplied, so that assessment's evidence is missing.",
       }),
     );
     const result = await generateRedTeamReview(request(partial), client(raw), registry());
@@ -310,7 +350,10 @@ describe("Red Team role", () => {
       baseFields({
         missingAssessments: ["competitor", "engineer"],
         reviewComplete: false,
-        contradictionExplanation: "There is no contradiction in the supplied claims.",
+        biggestAssumptionSource: "vc-2",
+        biggestAssumptionAnchor: "Pain is moderate",
+        biggestAssumption: "Pain is moderate is being treated as a finding.",
+        missingEvidence: "Competitor and Engineer were not supplied, so their evidence is missing.",
       }),
     );
     const accepted = await generateRedTeamReview(request(compatible), client(honest), registry());
@@ -433,6 +476,10 @@ describe("evaluation fixtures", () => {
           "unavailable",
         ],
         challengeUnavailable: ["unavailable", "No second distinct claim was supplied.", "No third distinct claim was supplied."],
+        biggestAssumptionSource: "cu-6",
+        biggestAssumptionAnchor: "WILLINGNESS TO PAY: LOW",
+        biggestAssumption: "WILLINGNESS TO PAY: LOW ignores a signed paid contract.",
+        missingEvidence: "Competitor and Engineer were not supplied, so their evidence is missing.",
         revisionWarranted: true,
         revisionTarget: "customer",
         revisionPosition: "4/10",
@@ -492,6 +539,12 @@ describe("context isolation and recovery", () => {
             ],
             missingAssessments: ["customer", "competitor", "engineer"],
             reviewComplete: false,
+            biggestAssumptionSource: pet ? "pet-vc" : "vc-1",
+            biggestAssumptionAnchor: pet ? "refill reminders are the wedge" : "total market is $50B",
+            biggestAssumption: pet
+              ? "refill reminders are the wedge is assumed, not observed."
+              : "The total market is $50B is treated as reachable demand.",
+            missingEvidence: "Customer, Competitor, and Engineer were not supplied, so their evidence is missing.",
             revisionWarranted: true,
             revisionTarget: "vc",
             revisionPosition: pet ? "PASS" : "MAYBE",
