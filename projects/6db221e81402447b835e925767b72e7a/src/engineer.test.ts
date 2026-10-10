@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { parseContribution } from "./contract";
-import { ENGINEER_CARD_FIELDS, ENGINEER_INSTRUCTIONS } from "./engineer";
+import { ENGINEER_CARD_FIELDS, ENGINEER_INSTRUCTIONS, formatEngineerOutput } from "./engineer";
 
-function card(fields: Record<string, unknown> = ENGINEER_CARD_FIELDS) {
+function card(overrides: Record<string, unknown> = {}) {
+  const fields = { ...ENGINEER_CARD_FIELDS, ...overrides };
   return JSON.stringify({
     summary: "TECHNICAL FEASIBILITY SCORE: 8/10",
     rationale: "The demo is a form and structured model calls.",
@@ -28,5 +29,9 @@ describe("engineer scorecard", () => {
     expect(parseContribution("engineer", "assessment", card({ ...ENGINEER_CARD_FIELDS, buildPosition: "pivot" })).ok).toBe(false);
     expect(ENGINEER_INSTRUCTIONS).toContain("FAKEABLE MVP");
     expect(ENGINEER_INSTRUCTIONS).toContain("WHAT TO CUT");
+    const printed = formatEngineerOutput(ENGINEER_CARD_FIELDS);
+    expect(printed).toContain("TECHNICAL FEASIBILITY SCORE: 8/10");
+    expect(printed).toContain("BUILD POSITION:\nEASY MVP");
+    expect(printed).toContain("MVP ESTIMATE:\n2 WEEKS");
   });
 });
