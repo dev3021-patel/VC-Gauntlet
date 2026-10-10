@@ -1,0 +1,75 @@
+import { describe, expect, it } from "vitest";
+import { validateBrief } from "./brief";
+import { createRoleRegistry } from "./contract";
+import { createRun } from "./debate";
+import {
+  buildGenerationPrompt,
+  createOpenAiClient,
+  generateContribution,
+  providerStatus,
+  readProviderConfig,
+} from "./provider";
+
+function run() {
+  const brief = validateBrief({
+    idea: "Clinic intake copilot",
+    problem: "Front desks lose hours to phone tag.",
+    targetCustomer: "Independent clinic managers",
+    solution: "An assistant that books from inbound calls.",
+    businessModel: "Per-location monthly subscription",
+  });
+  if (!brief.ok) throw new Error("fixture");
+  return createRun(brief.value);
+}
+
+describe("provider access", () => {
+  it("reports missing credentials without inventing a debate", async () => {
+    const status = providerStatus({});
+    expect(status.configured).toBe(false);
+    expect(status.message).toContain("Sample debates are not used");
+    expect(readProviderConfig({}).ok).toBe(false);
+    const generated = await generateContribution(
+      run(),
+      "vc",
+      "assessment",
+      createRoleRegistry({ vc: "Be strict about distribution." }),
+      null,
+    );
+    expect(generated.ok).toBe(false);
+    if (generated.ok) return;
+    expect(generated.error.code).toBe("missing_credentials");
+  });
+
+  it("refuses an unregistered role instead of substituting sample text", () => {
+    const prompt = buildGenerationPrompt(run(), "customer", "assessment", createRoleRegistry());
+    expect(prompt.ok).toBe(false);
+    if (prompt.ok) return;
+    expect(prompt.error.code).toBe("role_not_configured");
+  });
+
+  it("sends the brief to the provider and does not echo the key", async () => {
+    const seen: { authorization?: string; body?: string } = {};
+    const fetchImpl: typeof fetch = async (_url, init) => {
+      const headers = new Headers(init?.headers);
+      seen.authorization = headers.get("authorization") ?? undefined;
+      seen.body = String(init?.body);
+      return new Response(
+        JSON.stringify({ choices: [{ message: { content: "{\"summary\":\"ok\"}" } }] }),
+        { status: 200 },
+      );
+    };
+    const client = createOpenAiClient(
+      { apiKey: "secret-key", baseUrl: "https://example.test/v1", model: "test-model" },
+      fetchImpl,
+    );
+    const registry = createRoleRegistry({ engineer: "Judge build complexity." });
+    const prompt = buildGenerationPrompt(run(), "engineer", "assessment", registry);
+    expect(prompt.ok).toBe(true);
+    if (!prompt.ok) return;
+    const raw = await client.complete(prompt);
+    expect(raw).toContain("summary");
+    expect(seen.body).toContain("Clinic intake copilot");
+    expect(seen.authorization).toBe("Bearer secret-key");
+    expect(seen.body).not.toContain("secret-key");
+  });
+});
