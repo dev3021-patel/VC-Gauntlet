@@ -68,7 +68,9 @@ export interface VcScorecard {
   investmentPosition: VcPosition;
   strongestInvestmentCase: string;
   biggestFundabilityRisk: string;
+  marketSizeConcern: string;
   first100Users: string;
+  defensibilityConcern: string;
   killShotQuestion: string;
   oneLineVerdict: string;
 }
@@ -266,13 +268,17 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
   if (positionLabel !== investmentPosition) return null;
   const strongestInvestmentCase = fields.strongestInvestmentCase;
   const biggestFundabilityRisk = fields.biggestFundabilityRisk;
+  const marketSizeConcern = fields.marketSizeConcern;
   const first100Users = fields.first100Users;
+  const defensibilityConcern = fields.defensibilityConcern;
   const killShotQuestion = fields.killShotQuestion;
   const oneLineVerdict = fields.oneLineVerdict;
   if (
     typeof strongestInvestmentCase !== "string" ||
     typeof biggestFundabilityRisk !== "string" ||
+    typeof marketSizeConcern !== "string" ||
     typeof first100Users !== "string" ||
+    typeof defensibilityConcern !== "string" ||
     typeof killShotQuestion !== "string" ||
     typeof oneLineVerdict !== "string"
   ) {
@@ -281,7 +287,9 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
   if (
     !strongestInvestmentCase.trim() ||
     !biggestFundabilityRisk.trim() ||
+    !marketSizeConcern.trim() ||
     !first100Users.trim() ||
+    !defensibilityConcern.trim() ||
     !killShotQuestion.trim() ||
     !oneLineVerdict.trim()
   ) {
@@ -292,7 +300,9 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
     investmentPosition,
     strongestInvestmentCase: strongestInvestmentCase.trim(),
     biggestFundabilityRisk: biggestFundabilityRisk.trim(),
+    marketSizeConcern: marketSizeConcern.trim(),
     first100Users: first100Users.trim(),
+    defensibilityConcern: defensibilityConcern.trim(),
     killShotQuestion: killShotQuestion.trim(),
     oneLineVerdict: oneLineVerdict.trim(),
   };
@@ -389,7 +399,7 @@ export function parseContribution(
     vc = parseVc(fields, positionLabel);
     if (!vc) {
       return invalid(
-        "VC responses require a 0-100 score and INVEST, MAYBE, or PASS. MAYBE is not Pivot.",
+        "VC responses require a 0-100 score, INVEST, MAYBE, or PASS, plus market size, distribution, and defensibility. MAYBE is not Pivot.",
       );
     }
   }

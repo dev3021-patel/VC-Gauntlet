@@ -32,7 +32,9 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
     investmentPosition: "MAYBE",
     strongestInvestmentCase: "The pain is frequent and budgeted.",
     biggestFundabilityRisk: "It may stay a service.",
+    marketSizeConcern: "Independent clinics may be too small a market.",
     first100Users: "Use the founder's clinic network.",
+    defensibilityConcern: "Incumbent clinic software can ship the same intake flow.",
     killShotQuestion: "Who renews after month three?",
     oneLineVerdict: "Promising wedge, unproven scale.",
   };

@@ -19,7 +19,7 @@ function providerStatusPlugin(): Plugin {
             configured,
             model,
             message: configured
-              ? "Provider configured. Role agents are not registered in this foundation session."
+              ? "Provider configured. VC instructions are registered. Other roles are not, so a full debate is not generated."
               : "AI provider is not configured. Set OPENAI_API_KEY on the server. Sample debates are not used.",
           }),
         );
