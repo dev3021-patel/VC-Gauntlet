@@ -3,3 +3,4 @@ export * from "./contract";
 export * from "./debate";
 export * from "./provider";
 export * from "./vc";
+export * from "./redTeam";
