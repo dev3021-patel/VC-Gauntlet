@@ -1,6 +1,42 @@
 import { useEffect, useState } from "react";
 import { emptyBrief, type IdeaBrief } from "./brief";
+import type { CompetitorScorecard } from "./contract";
 import type { DebateRun } from "./debate";
+
+function CompetitorCard({ card }: { card: CompetitorScorecard }) {
+  const rows: Array<[string, string, string?]> = [
+    ["Incumbent I represent", card.incumbent],
+    ["Existing alternatives", card.existingAlternatives.join("; ")],
+    ["Customer lock-in advantage", card.customerLockIn, card.customerLockInReason],
+    ["How I would crush it", card.crushPlan],
+    ["Copyability risk", card.copyabilityRisk, card.copyabilityReason],
+    ["Moat strength", card.moatStrength, card.moatReason],
+    ["Why their moat is weak", card.weakMoat],
+    ["Distribution disadvantage", card.distributionDisadvantage],
+    ["Pricing pressure", card.pricingPressure, card.pricingReason],
+    ["Feature vs. company risk", card.featureRisk, card.featureReason],
+    ["What would make them dangerous", card.dangerousMove],
+    ["Founder question", card.founderQuestion],
+    ["Competitor verdict", card.verdict],
+  ];
+  return (
+    <section className="competitor-card" aria-label="Competitor agent output">
+      <p className="score-line">Competitor threat score: {card.threatScore}/10</p>
+      <p className="meta">How threatening this startup is to existing competitors.</p>
+      <dl>
+        {rows.map(([label, value, detail]) => (
+          <div key={label}>
+            <dt>{label}</dt>
+            <dd>
+              {["HIGH", "MEDIUM", "LOW", "STRONG", "WEAK", "NONE"].includes(value) ? <span className="level">{value}</span> : null}
+              {detail ? <span>{detail}</span> : ["HIGH", "MEDIUM", "LOW", "STRONG", "WEAK", "NONE"].includes(value) ? null : <span>{value}</span>}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
 
 const fields: Array<{ key: keyof IdeaBrief; label: string; long?: boolean }> = [
   { key: "idea", label: "Startup idea" }, { key: "problem", label: "Problem", long: true },
@@ -31,7 +67,7 @@ export function App() {
     <section className="status" aria-live="polite"><h2>Provider status</h2><p>{notice}</p></section>
     {!run ? <form className="brief" onSubmit={(e) => { e.preventDefault(); void call("/api/debate/start", { brief: draft }); }}><h2>Start a debate</h2>{fields.map((field) => <label key={field.key}>{field.label}{field.long ? <textarea value={draft[field.key]} onChange={(e) => setDraft({ ...draft, [field.key]: e.target.value })} /> : <input value={draft[field.key]} onChange={(e) => setDraft({ ...draft, [field.key]: e.target.value })} />}</label>)}<button disabled={busy}>Accept brief</button></form> : <section className="debate"><div className="debate-head"><div><p className="eyebrow">Stage</p><h2>{run.phase}</h2></div><button className="secondary" onClick={() => { setRun(null); setDraft(emptyBrief()); }}>New idea</button></div>
       {run.failure ? <p className="failure" role="alert">{run.failure.message} Retry the current stage when the provider is available.</p> : null}
-      <ol className="transcript">{run.messages.map((message) => <li key={message.id}><strong>{message.speaker.replace("_", " ")}</strong><span>{message.stage.replace("_", " ")}</span><p className={message.speaker === "chair" && message.stage === "verdict" ? "chair-output" : undefined}>{message.body}</p>
+      <ol className="transcript">{run.messages.map((message) => <li key={message.id}><strong>{message.speaker.replace("_", " ")}</strong><span>{message.stage.replace("_", " ")}</span>{message.envelope?.competitor ? <CompetitorCard card={message.envelope.competitor} /> : <p className={message.speaker === "chair" && message.stage === "verdict" ? "chair-output" : undefined}>{message.body}</p>}
         {message.envelope?.changed !== null ? <p className="trail">Position changed: {message.envelope?.changed ? "yes" : "no"}{message.envelope?.changeReason ? ` — ${message.envelope.changeReason}` : ""}</p> : null}
         {message.envelope?.fields.targetedRoles ? <p className="trail">Challenges: {(message.envelope.fields.targetedRoles as string[]).join(", ")}</p> : null}
         {message.envelope?.fields.questions ? <p className="trail">Questions: {(message.envelope.fields.questions as string[]).join(" · ")}</p> : null}

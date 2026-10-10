@@ -23,10 +23,10 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 
 `src/competitor.ts` registers the incumbent persona with `registerCompetitorAgent(registry)` and runs one turn with `runCompetitorTurn(run, client, registry)`. It uses the same envelope. It does not score Venture Gauntlet, and it does not return a Chair verdict.
 
-- `threatScore` is an integer from 0 to 10. `positionLabel` and `fields.stance` are `NOT_A_THREAT`, `COPYABLE_FEATURE`, or `REAL_WEDGE`.
-- Scorecard fields are `incumbent`, `crushPlan`, `weakMoat`, `copyabilityRisk`, `distributionDisadvantage`, `dangerousMove`, `founderQuestion`, and `verdict`.
+- `threatScore` is an integer from 0 to 10. `positionLabel` matches `fields.moatStrength`: `STRONG`, `MEDIUM`, `WEAK`, or `NONE`.
+- `customerLockIn`, `copyabilityRisk`, `pricingPressure`, and `featureRisk` are `HIGH`, `MEDIUM`, or `LOW`, each with a reason. `existingAlternatives` is a non-empty string list.
 - A named incumbent the brief does not supply must appear in an assumption or unknown claim. Another labeled claim does not cover it. No citations.
-- A rebuttal quotes the Red Team challenge. Only a rebuttal can change the score or stance. The opening assessment stays in the transcript.
+- A rebuttal quotes the Red Team challenge. Only a rebuttal can change the score or ratings. The opening assessment stays in the transcript.
 
 ## Red Team
 

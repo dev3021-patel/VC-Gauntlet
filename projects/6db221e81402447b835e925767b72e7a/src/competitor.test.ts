@@ -3,7 +3,7 @@ import { validateBrief } from "./brief";
 import { createRoleRegistry, parseContribution, SPECIALIST_ROLES } from "./contract";
 import { addFounderInput, beginTurn, completeTurn, createRun, retryTurn, type DebateRun } from "./debate";
 import { buildGenerationPrompt, type ModelClient } from "./provider";
-import { COMPETITOR_INSTRUCTIONS, registerCompetitorAgent, runCompetitorTurn } from "./competitor";
+import { COMPETITOR_INSTRUCTIONS, competitorCardFields, registerCompetitorAgent, runCompetitorTurn } from "./competitor";
 
 function newRun(idea = "Clinic intake copilot"): DebateRun {
   const brief = validateBrief({
@@ -38,16 +38,12 @@ function client(...replies: Array<string | Error>): ModelClient & { calls: numbe
 }
 
 function cardJson(
-  stance: "NOT_A_THREAT" | "COPYABLE_FEATURE" | "REAL_WEDGE",
+  moatStrength: "NONE" | "WEAK" | "STRONG",
   threatScore: number,
   extra: Record<string, unknown> = {},
 ) {
-  const feature =
-    stance === "COPYABLE_FEATURE"
-      ? "I would copy the booking feature and bundle it free."
-      : "I would partner with the clinic channel they do not own.";
   return JSON.stringify({
-    summary: `Stance ${stance} at ${threatScore}.`,
+    summary: `Moat ${moatStrength} at ${threatScore}.`,
     rationale: "The attack follows from who already owns the clinic workflow.",
     assumptions: [
       { statement: "Scheduling incumbents already sit in this workflow.", grounding: "assumption" },
@@ -55,18 +51,9 @@ function cardJson(
       { statement: "Renewal rate is unknown.", grounding: "unknown" },
     ],
     risks: ["The incumbent can ship the same step inside software clinics already pay for."],
-    positionLabel: stance,
+    positionLabel: moatStrength,
     fields: {
-      threatScore,
-      stance,
-      incumbent: "Scheduling incumbents",
-      crushPlan: feature,
-      weakMoat: "No proprietary clinic data and no workflow lock-in.",
-      copyabilityRisk: "A larger vendor can recreate the core feature in a sprint.",
-      distributionDisadvantage: "The incumbent already owns the clinic relationship.",
-      dangerousMove: "Exclusive outcome data from clinics the incumbent cannot see.",
-      founderQuestion: "What do you still own if the incumbent bundles this?",
-      verdict: "Without a captive clinic network, this is a feature, not a company.",
+      ...competitorCardFields({ moatStrength, threatScore }),
       ...((extra.fields as object) ?? {}),
     },
     changed: extra.changed,
@@ -86,7 +73,7 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
   if (!started.ok) throw new Error("fixture");
   const raw =
     role === "competitor"
-      ? cardJson("COPYABLE_FEATURE", 2)
+      ? cardJson("NONE", 2)
       : JSON.stringify({
           summary: `${role} view`,
           rationale: "Reasoned from the brief.",
@@ -148,34 +135,35 @@ describe("Competitor role registration", () => {
     const prompt = buildGenerationPrompt(newRun(), "competitor", "assessment", stored);
     expect(prompt.ok).toBe(true);
     if (prompt.ok) {
-      expect(prompt.system).toContain("NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE");
+      expect(prompt.system).toContain("STRONG, MEDIUM, WEAK, or NONE");
       expect(prompt.system).not.toContain("decision.verdict");
     }
   });
 
   it("has no role instructions unless registered", async () => {
-    const result = await runCompetitorTurn(newRun(), client(cardJson("NOT_A_THREAT", 1)), createRoleRegistry());
+    const result = await runCompetitorTurn(newRun(), client(cardJson("NONE", 1)), createRoleRegistry());
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe("role_not_configured");
   });
 });
 
 describe("Competitor opening", () => {
-  for (const [stance, score] of [
-    ["NOT_A_THREAT", 1],
-    ["COPYABLE_FEATURE", 3],
-    ["REAL_WEDGE", 8],
+  for (const [moatStrength, score] of [
+    ["NONE", 1],
+    ["WEAK", 3],
+    ["STRONG", 8],
   ] as const) {
-    it(`records a ${stance} assessment from the provider`, async () => {
-      const model = client(cardJson(stance, score));
+    it(`records a ${moatStrength} assessment from the provider`, async () => {
+      const model = client(cardJson(moatStrength, score));
       const run = await advance(runCompetitorTurn(newRun(), model, registry()));
       const message = run.messages[0];
       expect(model.calls).toBe(1);
       expect(model.last).toContain("Clinic intake copilot");
       expect(message.speaker).toBe("competitor");
       expect(message.body).toContain(`COMPETITOR THREAT SCORE: ${score}/10`);
-      expect(message.body).toContain("HOW I WOULD CRUSH IT:");
-      expect(message.envelope?.competitor).toMatchObject({ threatScore: score, stance });
+      expect(message.body).toContain("EXISTING ALTERNATIVES:");
+      expect(message.body).toContain("FEATURE VS. COMPANY RISK:");
+      expect(message.envelope?.competitor).toMatchObject({ threatScore: score, moatStrength });
       expect(message.envelope?.competitor?.founderQuestion).toMatch(/\?$/);
       expect(message.envelope?.decision).toBeNull();
       expect(message.envelope?.assumptions.map((claim) => claim.grounding)).toEqual([
@@ -188,14 +176,11 @@ describe("Competitor opening", () => {
 
   it("rejects bad scores, Chair labels, missing attacks, and citations", () => {
     for (const raw of [
-      cardJson("COPYABLE_FEATURE", 11),
-      cardJson("COPYABLE_FEATURE", 2.5),
-      cardJson("COPYABLE_FEATURE", 3).replace(
-        '"positionLabel":"COPYABLE_FEATURE"',
-        '"positionLabel":"pivot"',
-      ),
-      cardJson("COPYABLE_FEATURE", 3).replace('"summary"', '"citations":["x"],"summary"'),
-      cardJson("COPYABLE_FEATURE", 3, { decision: { verdict: "pass" } }),
+      cardJson("NONE", 11),
+      cardJson("NONE", 2.5),
+      cardJson("NONE", 3).replace('"positionLabel":"NONE"', '"positionLabel":"pivot"'),
+      cardJson("NONE", 3).replace('"summary"', '"citations":["x"],"summary"'),
+      cardJson("NONE", 3, { decision: { verdict: "pass" } }),
       "not json",
     ]) {
       expect(parseContribution("competitor", "assessment", raw).ok).toBe(false);
@@ -203,7 +188,7 @@ describe("Competitor opening", () => {
   });
 
   it("rejects an unnamed incumbent that is not labeled as an assumption", async () => {
-    const raw = cardJson("NOT_A_THREAT", 1).replace(
+    const raw = cardJson("NONE", 1).replace(
       '"assumptions":[{"statement":"Scheduling incumbents already sit in this workflow.","grounding":"assumption"},{"statement":"Two pilot clinics exist.","grounding":"founder_provided"},{"statement":"Renewal rate is unknown.","grounding":"unknown"}]',
       '"assumptions":[{"statement":"Two pilot clinics exist.","grounding":"founder_provided"}]',
     );
@@ -214,7 +199,7 @@ describe("Competitor opening", () => {
   });
 
   it("rejects an assumption that does not name the incumbent", async () => {
-    const raw = cardJson("NOT_A_THREAT", 1).replace(
+    const raw = cardJson("NONE", 1).replace(
       "Scheduling incumbents already sit in this workflow.",
       "Some vendor already sits in this workflow.",
     );
@@ -228,10 +213,10 @@ describe("Competitor opening", () => {
 describe("Competitor rebuttal", () => {
   it("quotes the challenge, flags a change, and preserves the opening", async () => {
     let run = newRun();
-    run = await advance(runCompetitorTurn(run, client(cardJson("COPYABLE_FEATURE", 3)), registry()));
+    run = await advance(runCompetitorTurn(run, client(cardJson("NONE", 3)), registry()));
     run = toRebuttals(run);
     expect(run.phase).toBe("rebuttals");
-    const rebuttal = cardJson("REAL_WEDGE", 8, {
+    const rebuttal = cardJson("STRONG", 8, {
       changed: true,
       changeReason: "The challenge showed the incumbent does not own this channel.",
       fields: { challengeReference: "clinics leave software they already pay for" },
@@ -243,24 +228,24 @@ describe("Competitor rebuttal", () => {
     expect(messages.map((message) => message.stage)).toEqual(["assessment", "rebuttal"]);
     expect(messages[0].envelope?.competitor).toMatchObject({
       threatScore: 3,
-      stance: "COPYABLE_FEATURE",
+      moatStrength: "NONE",
     });
     expect(messages[1].envelope).toMatchObject({ changed: true });
-    expect(messages[1].envelope?.competitor).toMatchObject({ threatScore: 8, stance: "REAL_WEDGE" });
+    expect(messages[1].envelope?.competitor).toMatchObject({ threatScore: 8, moatStrength: "STRONG" });
   });
 
   it("rejects a rebuttal that skips the challenge or misreports the change", async () => {
     let run = newRun();
-    run = await advance(runCompetitorTurn(run, client(cardJson("COPYABLE_FEATURE", 3)), registry()));
+    run = await advance(runCompetitorTurn(run, client(cardJson("NONE", 3)), registry()));
     run = toRebuttals(run);
     const bad = [
-      cardJson("COPYABLE_FEATURE", 3, { changed: false, changeReason: "Holds." }),
-      cardJson("COPYABLE_FEATURE", 3, {
+      cardJson("NONE", 3, { changed: false, changeReason: "Holds." }),
+      cardJson("NONE", 3, {
         changed: false,
         changeReason: "Holds.",
         fields: { challengeReference: "something never said" },
       }),
-      cardJson("REAL_WEDGE", 8, {
+      cardJson("STRONG", 8, {
         changed: false,
         changeReason: "Holds.",
         fields: { challengeReference: "clinics leave software they already pay for" },
@@ -277,9 +262,9 @@ describe("Competitor rebuttal", () => {
 describe("Competitor founder response", () => {
   async function founderRun() {
     let run = newRun("Night-shift staffing board");
-    run = await advance(runCompetitorTurn(run, client(cardJson("COPYABLE_FEATURE", 3)), registry()));
+    run = await advance(runCompetitorTurn(run, client(cardJson("NONE", 3)), registry()));
     run = toRebuttals(run);
-    const rebuttal = cardJson("COPYABLE_FEATURE", 3, {
+    const rebuttal = cardJson("NONE", 3, {
       changed: false,
       changeReason: "The challenge does not move the score.",
       fields: { challengeReference: "clinics leave software they already pay for" },
@@ -301,7 +286,7 @@ describe("Competitor founder response", () => {
       rationale: "One contract does not stop me from bundling the feature for everyone else.",
       assumptions: [{ statement: "The contract terms are founder-provided.", grounding: "founder_provided" }],
       risks: ["The exclusive term may be short."],
-      positionLabel: "COPYABLE_FEATURE",
+      positionLabel: "NONE",
       fields: { threatScore: 3 },
     });
     const model = client(reply);
@@ -310,7 +295,7 @@ describe("Competitor founder response", () => {
     expect(model.last).toContain("exclusive contract with the clinic network");
     const last = next.messages[next.messages.length - 1];
     expect(last.stage).toBe("founder_response");
-    expect(last.envelope?.positionLabel).toBe("COPYABLE_FEATURE");
+    expect(last.envelope?.positionLabel).toBe("NONE");
     expect(next.messages.find((message) => message.stage === "assessment")?.envelope?.competitor?.threatScore).toBe(3);
   });
 
@@ -321,7 +306,7 @@ describe("Competitor founder response", () => {
       rationale: "The contract persuades me.",
       assumptions: [],
       risks: ["term length"],
-      positionLabel: "REAL_WEDGE",
+      positionLabel: "STRONG",
       fields: { threatScore: 9 },
     });
     const result = await runCompetitorTurn(run, client(reply), registry());
@@ -346,7 +331,7 @@ describe("Competitor failure recovery", () => {
       expect(result.value.messages).toHaveLength(0);
       const retried = retryTurn(result.value);
       expect(retried.ok).toBe(true);
-      const again = await runCompetitorTurn(retried.value, client(cardJson("COPYABLE_FEATURE", 2)), registry());
+      const again = await runCompetitorTurn(retried.value, client(cardJson("NONE", 2)), registry());
       expect(again.ok).toBe(true);
       expect(again.value.messages).toHaveLength(1);
     }

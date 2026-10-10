@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateBrief, type IdeaBrief } from "./brief";
 import { createRoleRegistry, parseContribution, SPECIALIST_ROLES, type SpecialistRole } from "./contract";
 import { beginTurn, completeTurn, createRun, retryTurn, type DebateRun } from "./debate";
+import { competitorCardFields } from "./competitor";
 import {
   RED_TEAM_INSTRUCTIONS,
   buildRedTeamPrompt,
@@ -603,21 +604,8 @@ function record(run: DebateRun, role: SpecialistRole, summary: string, position:
       rationale: "Reasoned only from the submitted brief.",
       assumptions: [{ statement: "Demand beyond the brief is unproven.", grounding: "assumption" }],
       risks: ["The first channel may not repeat."],
-      positionLabel: role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : position,
-      fields: role === "vc" ? vcFields : role === "competitor"
-        ? {
-            threatScore: 2,
-            stance: "COPYABLE_FEATURE",
-            incumbent: "Scheduling incumbents",
-            crushPlan: "Bundle the booking feature and make it free.",
-            weakMoat: "No proprietary clinic data.",
-            copyabilityRisk: "A vendor can recreate the feature in a sprint.",
-            distributionDisadvantage: "The incumbent already owns the clinic relationship.",
-            dangerousMove: "Exclusive clinic data the incumbent cannot see.",
-            founderQuestion: "What do you own if the incumbent bundles this?",
-            verdict: "This is a feature, not a company.",
-          }
-        : { note: summary },
+      positionLabel: role === "vc" ? "MAYBE" : role === "competitor" ? "NONE" : position,
+      fields: role === "vc" ? vcFields : role === "competitor" ? competitorCardFields() : { note: summary },
     }),
   );
   if (!done.ok) throw new Error(done.error.message);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateBrief, type IdeaBrief } from "./brief";
 import { SPECIALIST_ROLES, type RoleId, type SpecialistRole } from "./contract";
+import { competitorCardFields } from "./competitor";
 import {
   addFounderInput,
   beginTurn,
@@ -38,18 +39,7 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
     killShotQuestion: "Who renews after month three?",
     oneLineVerdict: "Promising wedge, unproven scale.",
   };
-  const competitorFields = {
-    threatScore: 2,
-    stance: "COPYABLE_FEATURE",
-    incumbent: "Scheduling incumbents",
-    crushPlan: "Bundle the intake step into the existing clinic suite and make it free.",
-    weakMoat: "No proprietary clinic data and no workflow lock-in.",
-    copyabilityRisk: "A larger company can recreate the core feature in a sprint.",
-    distributionDisadvantage: "The incumbent already owns the clinic relationship.",
-    dangerousMove: "Exclusive clinic-network data the incumbent cannot see.",
-    founderQuestion: "What do you own if the incumbent bundles this?",
-    verdict: "This is a feature, not a company.",
-  };
+  const competitorFields = competitorCardFields();
   return JSON.stringify({
     summary: `${role} weighs ${extra.summary ?? "the submitted idea"}.`,
     rationale: "The argument follows from the brief, not a generic market claim.",
@@ -61,7 +51,7 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
     ],
     risks: ["The first channel may not repeat."],
     positionLabel:
-      role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : role === "chair" ? "pass" : "skeptical",
+      role === "vc" ? "MAYBE" : role === "competitor" ? "NONE" : role === "chair" ? "pass" : "skeptical",
     fields:
       role === "vc"
         ? vcFields

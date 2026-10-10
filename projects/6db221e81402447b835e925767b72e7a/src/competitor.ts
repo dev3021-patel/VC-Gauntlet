@@ -15,31 +15,70 @@ import {
   type DebateRun,
 } from "./debate";
 import { generateContribution, sharedRegistry, type ModelClient } from "./provider";
+import type { CompetitorLevel, MoatStrength } from "./contract";
 
 export const COMPETITOR_INSTRUCTIONS = `You are the Competitor Agent in Venture Gauntlet. You are the CEO of the strongest incumbent that could attack the submitted startup. You already have users, money, brand trust, distribution, and engineers. You are not evaluating Venture Gauntlet. You are evaluating the founder's submitted idea.
 
 Core question: if this startup launched tomorrow, how would you copy it, bundle it, underprice it, block it, or make it irrelevant?
 
-Evaluate existing alternatives, copyability, who already owns the users and workflow, pricing pressure, and moat. Name one plausible incumbent, platform, or category. Explain the exact attack. If the product is a feature inside an existing platform, say it is a feature. If there is no moat, say that directly. If there is a real wedge, name it and still say how you would attack it. Do not give generic competition advice. Do not be friendly.
+Name one plausible incumbent, platform, company type, or substitute. List direct and indirect alternatives. Say whether incumbents already own the relationship, data, workflow, trust, or distribution. Give a specific attack. Rate copyability, moat, pricing pressure, and whether this is a feature rather than a company. If it is a feature, say so. If there is no moat, say so. If there is a real wedge, name it and still say how you would attack it. Do not give generic competition advice. Do not be friendly.
 
 Grounding: treat founder input as provided context. If the brief does not name the incumbent, add an assumption or unknown claim whose statement includes that incumbent's name. Other labeled claims do not cover the incumbent. Never invent citations, URLs, market sizes, or traction.
 
 Opening assessment and rebuttal:
-- fields.threatScore is an integer 0-10. It means how threatening this startup is to incumbents, not how good the idea is.
-- positionLabel and fields.stance are exactly NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE. That stance is not a Chair verdict. Never return decision.
-- If the submission is only a feature, use COPYABLE_FEATURE and say "feature" in the crush plan or verdict.
-- incumbent names the attacker. crushPlan is the exact move. weakMoat is the defensibility problem. copyabilityRisk says how easily a larger company recreates the core feature. distributionDisadvantage says why the incumbent may already own the customer. dangerousMove is the one thing that would scare you. founderQuestion is one defensibility question ending in a question mark. verdict is one sharp sentence from your perspective.
-- Put those fields in summary as well as fields so the card is readable.
+- fields.threatScore is an integer 0-10. It means how threatening this startup is to existing competitors, not how good the idea is.
+- positionLabel must equal fields.moatStrength. moatStrength is exactly STRONG, MEDIUM, WEAK, or NONE. That is not a Chair verdict. Never return decision.
+- fields.customerLockIn, fields.copyabilityRisk, fields.pricingPressure, and fields.featureRisk are exactly HIGH, MEDIUM, or LOW.
+- Each rating has a reason: customerLockInReason, copyabilityReason, moatReason, pricingReason, featureReason.
+- existingAlternatives is a non-empty string array of direct and indirect substitutes.
+- incumbent names the attacker. crushPlan is the exact move. weakMoat is the biggest defensibility problem. distributionDisadvantage says why the incumbent reaches the customer faster or cheaper. dangerousMove is the one thing that would scare you. founderQuestion ends in a question mark. verdict is one brutal sentence.
+- If featureRisk is HIGH, featureReason or verdict must say this is a feature.
 
 Rebuttal, after the Red Team challenge:
 - Copy one phrase verbatim from the Red Team challenge into fields.challengeReference, then answer it.
-- Return the full scorecard again. Set changed to true only if threatScore or stance differs from the opening. changeReason says why. If the challenge proved an assumption weak, admit it and revise.
+- Return the full scorecard again. Set changed to true only if threatScore or any rating differs from the opening. changeReason says why. If the challenge proved an assumption weak, admit it and revise.
 
 Founder response:
 - Answer the founder's question or evidence from the brief and the discussion so far.
-- Do not change the threat score or stance. Set positionLabel to the current stance. Added evidence changes the recommendation only in a later rebuttal.
+- Do not change the threat score or ratings. Set positionLabel to the current moatStrength. Added evidence changes the recommendation only in a later rebuttal.
 
 You never return a final committee verdict.`;
+
+export function competitorCardFields(
+  overrides: Partial<{
+    threatScore: number;
+    moatStrength: MoatStrength;
+    customerLockIn: CompetitorLevel;
+    copyabilityRisk: CompetitorLevel;
+    pricingPressure: CompetitorLevel;
+    featureRisk: CompetitorLevel;
+    incumbent: string;
+    crushPlan: string;
+  }> = {},
+) {
+  const moatStrength = overrides.moatStrength ?? "NONE";
+  return {
+    threatScore: overrides.threatScore ?? 2,
+    incumbent: overrides.incumbent ?? "Scheduling incumbents",
+    existingAlternatives: ["Clinic scheduling software", "Front-desk staff"],
+    customerLockIn: overrides.customerLockIn ?? "HIGH",
+    customerLockInReason: "The incumbent already owns the clinic login and booking workflow.",
+    crushPlan: overrides.crushPlan ?? "Bundle the booking feature and make it free.",
+    copyabilityRisk: overrides.copyabilityRisk ?? "HIGH",
+    copyabilityReason: "A vendor can recreate the core feature in a sprint.",
+    moatStrength,
+    moatReason: "No proprietary clinic data, network, or workflow lock-in.",
+    weakMoat: "No proprietary clinic data and no workflow lock-in.",
+    distributionDisadvantage: "The incumbent already owns the clinic relationship.",
+    pricingPressure: overrides.pricingPressure ?? "HIGH",
+    pricingReason: "The incumbent can bundle this at no extra price.",
+    featureRisk: overrides.featureRisk ?? "HIGH",
+    featureReason: "This is a feature inside software clinics already pay for.",
+    dangerousMove: "Exclusive clinic data the incumbent cannot see.",
+    founderQuestion: "What do you own if the incumbent bundles this?",
+    verdict: "This is a feature, not a company.",
+  };
+}
 
 export function registerCompetitorAgent(registry: RoleRegistry = sharedRegistry): void {
   registry.register("competitor", COMPETITOR_INSTRUCTIONS);
@@ -90,12 +129,10 @@ function guard(run: DebateRun, stage: ContributionStage, envelope: RoleEnvelope)
     const card = envelope.competitor;
     if (!card) return "A Competitor assessment needs a threat scorecard.";
     if (
-      card.stance === "COPYABLE_FEATURE" &&
-      !`${envelope.summary} ${envelope.rationale} ${card.crushPlan} ${card.verdict}`
-        .toLowerCase()
-        .includes("feature")
+      card.featureRisk === "HIGH" &&
+      !`${card.featureReason} ${card.crushPlan} ${card.verdict}`.toLowerCase().includes("feature")
     ) {
-      return "COPYABLE_FEATURE must say the submission is a feature.";
+      return "HIGH feature risk must say the submission is a feature.";
     }
     const named = card.incumbent.toLowerCase();
     const supplied = briefText(run).includes(named);
@@ -120,15 +157,20 @@ function guard(run: DebateRun, stage: ContributionStage, envelope: RoleEnvelope)
       return "The Competitor rebuttal must quote a phrase from the Red Team challenge.";
     }
     const differs =
-      revised.threatScore !== opening.threatScore || revised.stance !== opening.stance;
+      revised.threatScore !== opening.threatScore ||
+      revised.moatStrength !== opening.moatStrength ||
+      revised.customerLockIn !== opening.customerLockIn ||
+      revised.copyabilityRisk !== opening.copyabilityRisk ||
+      revised.pricingPressure !== opening.pricingPressure ||
+      revised.featureRisk !== opening.featureRisk;
     if (envelope.changed !== differs) {
-      return "The Competitor rebuttal's changed flag contradicts its score and stance.";
+      return "The Competitor rebuttal's changed flag contradicts its score and ratings.";
     }
   }
   if (stage === "founder_response") {
     const current = latestScorecard(run);
-    if (current && envelope.positionLabel !== current.competitor.stance) {
-      return "A founder response cannot change the Competitor stance.";
+    if (current && envelope.positionLabel !== current.competitor.moatStrength) {
+      return "A founder response cannot change the Competitor rating.";
     }
     const score = envelope.fields.threatScore;
     if (current && typeof score === "number" && score !== current.competitor.threatScore) {
@@ -142,10 +184,20 @@ function renderCard(card: CompetitorScorecard): string {
   return [
     `COMPETITOR THREAT SCORE: ${card.threatScore}/10`,
     `INCUMBENT I REPRESENT: ${card.incumbent}`,
+    `EXISTING ALTERNATIVES: ${card.existingAlternatives.join("; ")}`,
+    `CUSTOMER LOCK-IN ADVANTAGE: ${card.customerLockIn}`,
+    card.customerLockInReason,
     `HOW I WOULD CRUSH IT: ${card.crushPlan}`,
-    `WHY THEIR MOAT IS WEAK: ${card.weakMoat}`,
     `COPYABILITY RISK: ${card.copyabilityRisk}`,
+    card.copyabilityReason,
+    `MOAT STRENGTH: ${card.moatStrength}`,
+    card.moatReason,
+    `WHY THEIR MOAT IS WEAK: ${card.weakMoat}`,
     `DISTRIBUTION DISADVANTAGE: ${card.distributionDisadvantage}`,
+    `PRICING PRESSURE: ${card.pricingPressure}`,
+    card.pricingReason,
+    `FEATURE VS. COMPANY RISK: ${card.featureRisk}`,
+    card.featureReason,
     `WHAT WOULD MAKE THEM DANGEROUS: ${card.dangerousMove}`,
     `FOUNDER QUESTION: ${card.founderQuestion}`,
     `COMPETITOR VERDICT: ${card.verdict}`,

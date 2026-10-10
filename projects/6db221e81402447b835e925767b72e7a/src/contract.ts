@@ -33,8 +33,11 @@ export type ContributionStage = (typeof CONTRIBUTION_STAGES)[number];
 export const VC_POSITIONS = ["INVEST", "MAYBE", "PASS"] as const;
 export type VcPosition = (typeof VC_POSITIONS)[number];
 
-export const COMPETITOR_STANCES = ["NOT_A_THREAT", "COPYABLE_FEATURE", "REAL_WEDGE"] as const;
-export type CompetitorStance = (typeof COMPETITOR_STANCES)[number];
+export const COMPETITOR_LEVELS = ["HIGH", "MEDIUM", "LOW"] as const;
+export type CompetitorLevel = (typeof COMPETITOR_LEVELS)[number];
+
+export const MOAT_STRENGTHS = ["STRONG", "MEDIUM", "WEAK", "NONE"] as const;
+export type MoatStrength = (typeof MOAT_STRENGTHS)[number];
 
 export const CHAIR_VERDICTS = ["invest", "pivot", "pass"] as const;
 export type ChairVerdict = (typeof CHAIR_VERDICTS)[number];
@@ -80,12 +83,21 @@ export interface VcScorecard {
 
 export interface CompetitorScorecard {
   threatScore: number;
-  stance: CompetitorStance;
   incumbent: string;
+  existingAlternatives: string[];
+  customerLockIn: CompetitorLevel;
+  customerLockInReason: string;
   crushPlan: string;
+  copyabilityRisk: CompetitorLevel;
+  copyabilityReason: string;
+  moatStrength: MoatStrength;
+  moatReason: string;
   weakMoat: string;
-  copyabilityRisk: string;
   distributionDisadvantage: string;
+  pricingPressure: CompetitorLevel;
+  pricingReason: string;
+  featureRisk: CompetitorLevel;
+  featureReason: string;
   dangerousMove: string;
   founderQuestion: string;
   verdict: string;
@@ -200,8 +212,12 @@ export function isVcPosition(value: string): value is VcPosition {
   return (VC_POSITIONS as readonly string[]).includes(value);
 }
 
-export function isCompetitorStance(value: string): value is CompetitorStance {
-  return (COMPETITOR_STANCES as readonly string[]).includes(value);
+export function isCompetitorLevel(value: string): value is CompetitorLevel {
+  return (COMPETITOR_LEVELS as readonly string[]).includes(value);
+}
+
+export function isMoatStrength(value: string): value is MoatStrength {
+  return (MOAT_STRENGTHS as readonly string[]).includes(value);
 }
 
 export function chairVerdictFromVcPosition(_position: VcPosition): null {
@@ -335,9 +351,20 @@ function requiredField(fields: RoleFields, key: string): string | null {
   return value.trim();
 }
 
+function levelField(fields: RoleFields, key: string): CompetitorLevel | null {
+  const value = fields[key];
+  return typeof value === "string" && isCompetitorLevel(value) ? value : null;
+}
+
+function stringListField(fields: RoleFields, key: string): string[] | null {
+  const value = fields[key];
+  if (!Array.isArray(value) || value.length === 0 || value.some((item) => !item.trim())) return null;
+  return value.map((item) => item.trim());
+}
+
 function parseCompetitor(fields: RoleFields, positionLabel: string): CompetitorScorecard | null {
   const threatScore = fields.threatScore;
-  const stance = fields.stance;
+  const moatStrength = fields.moatStrength;
   if (
     typeof threatScore !== "number" ||
     !Number.isInteger(threatScore) ||
@@ -346,23 +373,41 @@ function parseCompetitor(fields: RoleFields, positionLabel: string): CompetitorS
   ) {
     return null;
   }
-  if (typeof stance !== "string" || !isCompetitorStance(stance) || positionLabel !== stance) {
+  if (typeof moatStrength !== "string" || !isMoatStrength(moatStrength) || positionLabel !== moatStrength) {
     return null;
   }
+  const existingAlternatives = stringListField(fields, "existingAlternatives");
+  const customerLockIn = levelField(fields, "customerLockIn");
+  const copyabilityRisk = levelField(fields, "copyabilityRisk");
+  const pricingPressure = levelField(fields, "pricingPressure");
+  const featureRisk = levelField(fields, "featureRisk");
   const incumbent = requiredField(fields, "incumbent");
+  const customerLockInReason = requiredField(fields, "customerLockInReason");
   const crushPlan = requiredField(fields, "crushPlan");
+  const copyabilityReason = requiredField(fields, "copyabilityReason");
+  const moatReason = requiredField(fields, "moatReason");
   const weakMoat = requiredField(fields, "weakMoat");
-  const copyabilityRisk = requiredField(fields, "copyabilityRisk");
   const distributionDisadvantage = requiredField(fields, "distributionDisadvantage");
+  const pricingReason = requiredField(fields, "pricingReason");
+  const featureReason = requiredField(fields, "featureReason");
   const dangerousMove = requiredField(fields, "dangerousMove");
   const founderQuestion = requiredField(fields, "founderQuestion");
   const verdict = requiredField(fields, "verdict");
   if (
-    !incumbent ||
-    !crushPlan ||
-    !weakMoat ||
+    !existingAlternatives ||
+    !customerLockIn ||
     !copyabilityRisk ||
+    !pricingPressure ||
+    !featureRisk ||
+    !incumbent ||
+    !customerLockInReason ||
+    !crushPlan ||
+    !copyabilityReason ||
+    !moatReason ||
+    !weakMoat ||
     !distributionDisadvantage ||
+    !pricingReason ||
+    !featureReason ||
     !dangerousMove ||
     !founderQuestion ||
     !verdict ||
@@ -372,12 +417,21 @@ function parseCompetitor(fields: RoleFields, positionLabel: string): CompetitorS
   }
   return {
     threatScore,
-    stance,
     incumbent,
+    existingAlternatives,
+    customerLockIn,
+    customerLockInReason,
     crushPlan,
-    weakMoat,
     copyabilityRisk,
+    copyabilityReason,
+    moatStrength,
+    moatReason,
+    weakMoat,
     distributionDisadvantage,
+    pricingPressure,
+    pricingReason,
+    featureRisk,
+    featureReason,
     dangerousMove,
     founderQuestion,
     verdict,
@@ -485,7 +539,7 @@ export function parseContribution(
     competitor = parseCompetitor(fields, positionLabel);
     if (!competitor) {
       return invalid(
-        "Competitor responses require a 0-10 threat score and NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE.",
+        "Competitor responses require a 0-10 threat score, HIGH/MEDIUM/LOW ratings, and a moat strength of STRONG, MEDIUM, WEAK, or NONE.",
       );
     }
   }
