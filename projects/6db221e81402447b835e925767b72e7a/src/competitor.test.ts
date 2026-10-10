@@ -100,7 +100,9 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
                   investmentPosition: "MAYBE",
                   strongestInvestmentCase: "Missed calls leak revenue.",
                   biggestFundabilityRisk: "Vendors can bundle it.",
+                  marketSizeConcern: "Independent clinics may be too narrow.",
                   first100Users: "The founder's clinics.",
+                  defensibilityConcern: "A clinic suite can copy the workflow.",
                   killShotQuestion: "Who renews?",
                   oneLineVerdict: "A feature until it owns the schedule.",
                 }

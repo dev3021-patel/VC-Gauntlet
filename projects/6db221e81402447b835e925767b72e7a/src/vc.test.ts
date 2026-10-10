@@ -57,7 +57,9 @@ function vcJson(
       investmentPosition: position,
       strongestInvestmentCase: "Missed calls are a measurable revenue leak.",
       biggestFundabilityRisk: "Incumbent scheduling vendors can bundle it.",
+      marketSizeConcern: "Independent clinics may be too narrow for a venture outcome.",
       first100Users: "Sell to the founders' clinic network, then clinic consultants.",
+      defensibilityConcern: "A scheduling incumbent can copy the intake flow.",
       killShotQuestion: "Who renews after the pilot ends?",
       oneLineVerdict: "A feature until it owns the schedule.",
       ...((extra.fields as object) ?? {}),
@@ -102,15 +104,15 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
             changeReason: started.value.lock?.stage === "rebuttal" ? "Holds." : undefined,
           })
         : JSON.stringify({
-            summary: `${role} view`,
-            rationale: "Reasoned from the brief.",
-            assumptions: [],
-            risks: ["risk"],
-            positionLabel: "skeptical",
-            fields: {},
-            changed: started.value.lock?.stage === "rebuttal" ? false : undefined,
-            changeReason: started.value.lock?.stage === "rebuttal" ? "Holds." : undefined,
-          });
+          summary: `${role} view`,
+          rationale: "Reasoned from the brief.",
+          assumptions: [],
+          risks: ["risk"],
+          positionLabel: "skeptical",
+          fields: {},
+          changed: started.value.lock?.stage === "rebuttal" ? false : undefined,
+          changeReason: started.value.lock?.stage === "rebuttal" ? "Holds." : undefined,
+        });
   const done = completeTurn(started.value, raw);
   if (!done.ok) throw new Error(done.error.message);
   return done.value;

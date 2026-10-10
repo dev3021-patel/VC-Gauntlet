@@ -8,7 +8,9 @@ import {
   generateContribution,
   providerStatus,
   readProviderConfig,
+  sharedRegistry,
 } from "./provider";
+import { VC_INSTRUCTIONS } from "./vc";
 
 function run() {
   const brief = validateBrief({
@@ -38,6 +40,31 @@ describe("provider access", () => {
     expect(generated.ok).toBe(false);
     if (generated.ok) return;
     expect(generated.error.code).toBe("missing_credentials");
+  });
+
+  it("registers VC instructions and does not turn a provider failure into a sample card", async () => {
+    const instructions = sharedRegistry.instructions("vc");
+    expect(instructions).toBe(VC_INSTRUCTIONS);
+    expect(instructions).toContain("marketSizeConcern");
+    expect(instructions).toContain("defensibilityConcern");
+    expect(instructions).toContain("rebuttal");
+    expect(instructions).toContain("Founder response");
+    const prompt = buildGenerationPrompt(run(), "vc", "assessment", sharedRegistry);
+    expect(prompt.ok).toBe(true);
+    if (!prompt.ok) return;
+    expect(prompt.user).toContain("Clinic intake copilot");
+    expect(prompt.system).not.toContain("Sample debate");
+    const failed = await generateContribution(run(), "vc", "assessment", sharedRegistry, {
+      complete: async () => {
+        throw Object.assign(new Error("The AI provider returned an error."), {
+          code: "provider_failure",
+        });
+      },
+    });
+    expect(failed.ok).toBe(false);
+    if (failed.ok) return;
+    expect(failed.error.code).toBe("provider_failure");
+    expect(JSON.stringify(failed)).not.toContain("INVEST");
   });
 
   it("refuses an unregistered role instead of substituting sample text", () => {
