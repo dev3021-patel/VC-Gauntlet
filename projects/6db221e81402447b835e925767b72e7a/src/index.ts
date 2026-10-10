@@ -6,3 +6,4 @@ export * from "./chair";
 export * from "./vc";
 export * from "./competitor";
 export * from "./redTeam";
+export * from "./verdictChat";
