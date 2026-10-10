@@ -110,10 +110,13 @@ def test_a_shared_writer_interleaves_with_the_owner_and_hears_its_batches():
             await shared.start()
             owned, heard = store.subscribe(WORLD), shared.subscribe(WORLD)
             start = await positions(store)
-            assert await store.submit_live(move(first, 1, (11, 4), (10, 4), start[first][2]), first_actor) is None
-            # A Preview backend commits while the owner's move is still in memory.
-            shot = Command(WORLD, f"{second}-shared-shot", "player.shoot", {"expectedRevision": start[second][2]})
-            async with store.runtimes[WORLD].lock:
+            # Hold the actual batch-write lock before queuing the owner's move.
+            # Broadcast ticks intentionally do not acquire the runtime command lock.
+            runtime = store._runtime(WORLD)
+            async with runtime.flushing:
+                assert await store.submit_live(move(first, 1, (11, 4), (10, 4), start[first][2]), first_actor) is None
+                # A Preview backend commits while the owner's move is still in memory.
+                shot = Command(WORLD, f"{second}-shared-shot", "player.shoot", {"expectedRevision": start[second][2]})
                 committed = (await shared.submit(shot, second_actor))[0]["event"]
             events = await streamed(owned, 2)
             assert [event["eventType"] for event in events] == ["player.shot", "player.moved"]
