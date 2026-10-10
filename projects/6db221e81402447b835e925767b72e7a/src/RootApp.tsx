@@ -1,13 +1,14 @@
-import { App as DemoApp } from "./App";
+import { App as CommitteeApp } from "./App";
 import { LiveDebate } from "./LiveDebate";
 
 export function RootApp() {
-  const live = new URLSearchParams(window.location.search).get("mode") === "live";
+  const mode = new URLSearchParams(window.location.search).get("mode");
+  const console = mode === "live" || mode === "console";
   return <>
     <nav className="app-modes" aria-label="Experience">
-      <a href="/?mode=demo" aria-current={!live ? "page" : undefined}>Demo · sample scenario</a>
-      <a href="/?mode=live" aria-current={live ? "page" : undefined}>Live · AI committee</a>
+      <a href="/" aria-current={!console ? "page" : undefined}>Committee · five screens (live, demo on request)</a>
+      <a href="/?mode=console" aria-current={console ? "page" : undefined}>Console · live transcript</a>
     </nav>
-    {live ? <LiveDebate /> : <DemoApp />}
+    {console ? <LiveDebate /> : <CommitteeApp />}
   </>;
 }
