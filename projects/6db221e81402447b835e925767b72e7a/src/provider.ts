@@ -128,7 +128,7 @@ supported_evidence requires evidenceNote. Do not invent citations, URLs, or sour
 risks is a non-empty array of strings.
 Do not include citations or sources keys.
 Label unsupported market, demand, and competitor claims as assumption or unknown.
-VC assessments and rebuttals must set positionLabel to INVEST, MAYBE, or PASS and fields.score to an integer from 0 to 100, plus strongestInvestmentCase, biggestFundabilityRisk, marketSizeConcern, first100Users, defensibilityConcern, killShotQuestion, and oneLineVerdict. first100Users is the distribution question. MAYBE is not Pivot. A founder reply answers the question and does not change the investment position.
+VC assessments and rebuttals must set positionLabel to INVEST, MAYBE, or PASS and fields.score to an integer from 0 to 100, plus strongestInvestmentCase, biggestFundabilityRisk, first100Users, killShotQuestion, and oneLineVerdict. MAYBE is not Pivot.
 Red Team challenges must set fields.targetedRoles and fields.questions to string arrays.
 Rebuttals must set changed to a boolean and changeReason to a string.
 Only the Chair returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair positionLabel must match that verdict.`;

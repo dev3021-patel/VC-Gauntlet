@@ -22,9 +22,7 @@ const vcJson = JSON.stringify({
     investmentPosition: "MAYBE",
     strongestInvestmentCase: "A painful workflow with a budget owner.",
     biggestFundabilityRisk: "It may be a feature, not a company.",
-    marketSizeConcern: "The named buyer may be too narrow for a venture outcome.",
     first100Users: "Sell alongside the founder's existing design partners.",
-    defensibilityConcern: "A larger clinic suite can copy the workflow.",
     killShotQuestion: "Who signs the first ten contracts?",
     oneLineVerdict: "Real pain, unproven company.",
   },
@@ -41,31 +39,7 @@ describe("shared envelope", () => {
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.value.vc?.investmentPosition).toBe("MAYBE");
-    expect(parsed.value.vc?.marketSizeConcern).toContain("too narrow");
-    expect(parsed.value.vc?.defensibilityConcern).toContain("copy");
     expect(parsed.value.decision).toBeNull();
-  });
-
-  it("accepts INVEST and PASS and rejects a scorecard missing the new concerns", () => {
-    const fields = JSON.parse(vcJson) as {
-      positionLabel: string;
-      fields: Record<string, string | number>;
-    };
-    for (const position of ["INVEST", "PASS"] as const) {
-      fields.positionLabel = position;
-      fields.fields.investmentPosition = position;
-      fields.fields.score = position === "INVEST" ? 82 : 18;
-      const parsed = parseContribution("vc", "assessment", JSON.stringify(fields));
-      expect(parsed.ok).toBe(true);
-      if (parsed.ok) expect(parsed.value.vc?.investmentPosition).toBe(position);
-    }
-    delete fields.fields.marketSizeConcern;
-    fields.positionLabel = "MAYBE";
-    fields.fields.investmentPosition = "MAYBE";
-    expect(parseContribution("vc", "assessment", JSON.stringify(fields)).ok).toBe(false);
-    fields.fields.marketSizeConcern = "Narrow buyer.";
-    delete fields.fields.defensibilityConcern;
-    expect(parseContribution("vc", "assessment", JSON.stringify(fields)).ok).toBe(false);
   });
 
   it("rejects a specialist pivot label and generated citations", () => {
