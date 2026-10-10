@@ -2,7 +2,7 @@ import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
 import { join } from "node:path";
 import type { AddressInfo } from "node:net";
 import { afterEach, expect, it, vi } from "vitest";
-import { createApplication } from "./production";
+import { createApplication, listenHost } from "./production";
 
 let server: ReturnType<typeof createApplication> | undefined;
 let directory: string | undefined;
@@ -11,6 +11,12 @@ afterEach(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
   server = undefined; directory = undefined;
   vi.unstubAllEnvs();
+});
+
+it("binds localhost unless Railway or HOST asks for a public interface", () => {
+  expect(listenHost({})).toBe("127.0.0.1");
+  expect(listenHost({ RAILWAY_ENVIRONMENT: "production" })).toBe("0.0.0.0");
+  expect(listenHost({ HOST: "0.0.0.0" })).toBe("0.0.0.0");
 });
 
 it("serves built UI and the same real API locally without provider credentials or scripted fallback", async () => {
