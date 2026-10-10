@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { handleDebateApi } from "./src/server";
@@ -34,6 +35,8 @@ const hmrPort = process.env.VITE_HMR_CLIENT_PORT
 
 export default defineConfig({
   plugins: [react(), providerStatusPlugin()],
+  cacheDir: join(process.env.XDG_CACHE_HOME || "node_modules/.cache", "venture-gauntlet-vite"),
+  build: { outDir: process.env.PARTY_OUTPUT_DIR || "dist" },
   server: {
     host: "127.0.0.1",
     allowedHosts: true,

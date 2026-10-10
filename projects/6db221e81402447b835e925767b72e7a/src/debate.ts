@@ -432,9 +432,15 @@ export function renderContext(context: DebateContext): string {
         const { field, max } = SPECIALIST_SCORE_SPECS[message.envelope.role];
         lines.push(`Primary score (${field}): ${score}/${max}`);
       }
+      if (message.envelope.stage === "assessment") {
+        lines.push(`Assessment reasoning: ${message.envelope.rationale}`);
+        message.envelope.risks.forEach((risk, index) => {
+          lines.push(`${index === 0 ? "Biggest risk" : "Risk"}: ${risk}`);
+        });
+      }
     }
     for (const claim of message.envelope?.assumptions ?? []) {
-      lines.push(`Claim (${claim.grounding}): ${claim.statement}`);
+      lines.push(`Claim (${claim.grounding}): ${claim.statement}${claim.evidenceNote ? ` Evidence note: ${claim.evidenceNote}` : ""}`);
     }
   }
   return lines.join("\n");

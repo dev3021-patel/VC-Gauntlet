@@ -1,5 +1,6 @@
 import {
   createRoleRegistry,
+  isSpecialist,
   type ContractError,
   type ContributionStage,
   type RoleId,
@@ -137,6 +138,12 @@ Red Team challenges must set fields.targetedRoles and fields.questions to string
 Rebuttals must set changed to a boolean and changeReason to a string.
 Only the Chair returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair positionLabel must match that verdict.`;
 
+const ASSESSMENT_REPORT_INSTRUCTIONS = `Keep the assessment report inside the existing role envelope. Do not add a report key, fields.report, or a separate top-level output structure.
+Use rationale as a string containing 2-4 short points, separated by newlines and prefixed with "- ". Explain why the score and position follow from the brief; keep each point to one concrete sentence, like the concise scorecard fields.
+Put the single biggest risk first in the existing risks array; keep any remaining risks concise. For the VC, that first risk must agree with fields.biggestFundabilityRisk.
+Use the existing assumptions array for labeled claims, with the existing grounding values and evidenceNote rule. Distinguish founder-provided statements from verified evidence, assumptions, and unknowns; never invent facts to fill the card.
+Keep summary and all existing role-specific fields. No per-agent report format.`;
+
 export function buildGenerationPrompt(
   run: DebateRun,
   role: RoleId,
@@ -157,7 +164,7 @@ export function buildGenerationPrompt(
   const context = renderContext(contextSnapshot(run));
   return {
     ok: true,
-    system: `${instructions}\n\n${ENVELOPE_INSTRUCTIONS}`,
+    system: `${instructions}\n\n${ENVELOPE_INSTRUCTIONS}${isSpecialist(role) && stage === "assessment" ? `\n\n${ASSESSMENT_REPORT_INSTRUCTIONS}` : ""}`,
     user: `Role: ${role}\nStage: ${stage}\n\n${context}${appendix.trim() ? `\n\n${appendix.trim()}` : ""}\n\nRespond only to this brief and the discussion so far.`,
   };
 }

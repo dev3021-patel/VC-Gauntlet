@@ -17,6 +17,12 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - `SPECIALIST_SCORE_SPECS` exports each field name and native maximum. `getPrimaryScore(envelope)` returns its assessment/rebuttal score or `null` when missing. Import both from `src/index.ts`; fall back to position changes whenever either side lacks a score. Do not invent a numeric fallback or compare different agents' raw scores.
 - Rebuttals carry the revised score. `changed: false` retains the opening score when both Customer/Engineer scores are present; old position-only exchanges remain accepted. Later debate context includes recorded scores with their own scales.
 
+## Assessment reports
+
+- Specialist assessment reports reuse `rationale` (2–4 short newline-separated points), `risks` (biggest risk first), and `assumptions` (existing grounding labels and evidence notes). There is no new report field or top-level structure; role scorecards and schema version 1 stay intact. Historical prose remains accepted.
+- Shared provider instructions apply this concise format to specialist assessments only. Red Team, rebuttal, founder-response, and Chair formats remain unchanged. Recorded assessment reasoning, risks, and claim evidence notes reach subsequent debate context.
+- `AssessmentReport` is a reusable UI component accepting a `RoleEnvelope`. It displays the existing content beside the native score and position, with position-only fallback for missing scores. Import it from `src/AssessmentReport.tsx`; its styles are scoped in `src/assessment-report.css`. It can be reused by the separate five-screen UI work without changing the API contract.
+
 ## Chair chat after the verdict
 
 - `verdict_chat` is a Chair-only discussion stage. `runChairChatTurn(run, input, client, history)` uses the full completed run, including every structured envelope and the original verdict. It returns a reply, never a changed run. Other Chair generation remains on the existing verdict adapter.
