@@ -1,0 +1,103 @@
+# Issue #1: Venture Gauntlet: real AI investment committee debates
+
+**URL:** https://app.party.build/issues/1
+**Reference slug:** Venture Gauntlet
+**Status:** open  **Type:** feature
+**Revision:** 7ef9a824-e93f-44d5-aa4a-3df00d920272
+**Annotation coordinates:** use `party issue view <n> --numbered`; this file's lines are not canonical.
+
+## Summary
+Build Venture Gauntlet, a web application that helps founders expose weaknesses in startup ideas through a real AI investment committee. Six distinct roles assess, challenge, reconsider, and synthesize the idea into an actionable Invest, Pivot, or Pass verdict. Founders can ask questions and contribute evidence before requesting the final decision. The user explicitly selected real AI debates rather than a scripted demo.
+
+## Behavior
+- **Delivery across sessions:** Build each of the six committee agents in its own scoped session, then combine them in a final integration session. Establish the shared foundation first: idea brief, ordered debate messages, stage context, role identifiers, common result envelope, provider access, validation, and error handling. Each agent session owns its role instructions, evaluation criteria, role-specific output fields, and assessment/challenge/rebuttal/question behavior appropriate to that role. Reuse existing agent-session work rather than rebuilding it. The final integration session owns debate sequencing, founder participation, UI wiring, and end-to-end verification. This Issue remains the overall product spec; agree the narrower implementation scope of this session before starting development.
+- **Role output compatibility:** Preserve role-specific scores and positions separately from the Chair's final verdict. The existing VC Agent session defines a justified score out of 100 and INVEST / MAYBE / PASS, plus investment case, fundability risk, first-user strategy, founder question, and concise verdict. The common envelope must accommodate those fields without silently treating MAYBE as PIVOT. Only the Chair's final decision is required to use Invest, Pivot, or Pass. Record the shared contract before agent implementation so later sessions target the same interface. [annotation:A1]
+- **Idea brief:** A founder enters the startup idea, problem, target customer, proposed solution, and business model. Validate missing required information before starting and retain the brief when validation or generation fails. Optional context such as traction or founder evidence can inform the discussion without being required.
+- **Real AI generation:** Generate assessments, challenges, rebuttals, founder-question responses, and verdicts through a configured AI provider. Distinct roles may share a model but must have distinct instructions and context. Keep provider credentials on the server. Missing credentials must produce an honest setup/unavailable state; never substitute sample responses as a live debate. Provider and model selection are implementation choices.
+- **Opening assessments:** VC evaluates business potential; Customer evaluates customer need and adoption; Competitor evaluates alternatives and differentiation; Engineer evaluates feasibility and build complexity. Each provides a role-specific rationale, risks, assumptions, and an initial role-specific position.
+- **Red Team challenge:** After all four opening assessments, Red Team examines their actual arguments, calls out specific weaknesses or contradictions, and asks targeted questions. Its contribution must reference the submitted idea and preceding discussion.
+- **Reconsideration:** Each of the four specialists receives the Red Team challenges and relevant debate context, responds directly, and states whether its recommendation changed and why. Preserve initial assessments alongside revised positions so founders can follow the reasoning.
+- **Founder participation:** Pause after rebuttals and before the verdict. Let the founder ask questions or add evidence and receive context-aware responses from relevant committee roles. Include both founder input and responses in subsequent context. Allow repeated exchanges, or allow the founder to skip questions. Only an explicit request for the final verdict advances to the Chair; do not finalize automatically.
+- **Chair verdict:** Once requested, the Committee Chair reviews the full brief, assessments, challenges, rebuttals, and founder exchanges. Return one clear verdict: Invest, Pivot, or Pass. Explain the decisive reasons, meaningful disagreements, assumptions still untested, and concrete next validation steps. For Pivot, describe the recommended change. Invest is a committee recommendation, not a promise of funding.
+- **Readable debate:** Present an ordered transcript with clear speaker identities and stages: assessments, challenge, rebuttals, founder discussion, and verdict. Show which stage or role is working and display completed contributions as they become available. Make the brief, original recommendations, and revised recommendations accessible during review. Support readable desktop and mobile layouts, labeled inputs, keyboard interaction, and status cues that do not rely solely on color.
+- **Grounding:** Distinguish founder-provided information, supported evidence, and AI assumptions. Do not present generated market sizes, customer demand, or competitor facts as verified research without supporting evidence. External web research is not required for this release; no fabricated citations.
+- **Failure recovery:** Show actionable errors for missing configuration, provider failures, timeouts, and invalid responses. Preserve completed contributions and founder input, and let users retry the failed stage without duplicating completed contributions. Prevent overlapping submissions or premature verdict requests while required work is pending. A failed or incomplete required stage cannot yield a completed verdict.
+- **New idea:** After reviewing a verdict, allow a founder to start a fresh brief and debate without carrying arguments from the previous idea into the new run. Accounts, billing, team collaboration, and a persistent cross-device debate library are outside this first-release scope.
+
+## Acceptance Criteria
+- [ ] A founder can submit a complete idea brief; incomplete required fields show clear validation and preserve entered text. [annotation:A2]
+- [ ] With valid provider configuration, a submitted idea produces actual AI-generated content for all six roles. The application never labels scripted or fallback content as a real debate. [annotation:A4]
+- [ ] VC, Customer, Competitor, and Engineer each deliver a distinct assessment with rationale, assumptions, risks, and an initial role-specific position; VC uses Invest, Maybe, or Pass with a justified score out of 100.
+- [ ] Red Team runs after the opening assessments and challenges identifiable arguments from those assessments.
+- [ ] All four specialists respond to the challenges and expose their revised or unchanged recommendations with reasons; initial positions remain available.
+- [ ] The debate pauses before the Chair. The founder can ask multiple questions or add evidence, receive relevant AI responses, and explicitly request a verdict, including without asking a question.
+- [ ] The Chair receives the complete discussion, including founder exchanges, and returns exactly one verdict with decisive reasons, unresolved risks, disagreements, and actionable next steps; a Pivot verdict includes a proposed direction.
+- [ ] Two materially different idea briefs produce responses grounded in their respective inputs. A founder clarification appears in the context used for subsequent responses and the verdict.
+- [ ] The transcript identifies speakers, maintains stage order, shows generation progress, and displays original and revised specialist positions clearly.
+- [ ] Unsupported market and competitor claims are labeled as assumptions or unknowns; the debate does not invent evidence or citations.
+- [ ] Missing credentials and simulated provider failures show honest, recoverable errors, retain completed responses and founder input, and do not produce a false completed verdict. Retrying does not duplicate successful contributions.
+- [ ] Repeated clicks do not start overlapping generations, and the Chair cannot run before the required assessments, challenge, and rebuttals complete.
+- [ ] Starting a new idea clears the prior run's context and allows another complete debate.
+- [ ] The idea form, debate, question input, and verdict are usable on mobile and desktop with keyboard-accessible controls and readable status indicators.
+- [ ] Delivery includes meaningful checks for debate order, context propagation, founder participation, verdict parsing, failure recovery, and fresh-run isolation; a real provider end-to-end run is verified when credentials are available, with any unavailable live verification reported explicitly.
+- [ ] Implementation includes the project's committed .party/checks.json, a working Party preview, and attached visuals of the delivered UI. Project files, outputs, caches, and any CI configuration remain scoped to projects/6db221e81402447b835e925767b72e7a; unrelated project workflows are preserved.
+- [ ] Each separately built agent conforms to the shared input/output contract and can be integrated without rebuilding its role logic. VC scores and Maybe positions are preserved distinctly from the Chair's Invest, Pivot, or Pass verdict. [annotation:A3]
+
+
+## Annotations
+
+### Annotation A1 · current · open
+**Range:** `6:5-6:31`
+
+> Role output compatibility:
+
+#### A1.1 · implemented
+engineer · 2026-10-10T18:39:24.108451+00:00
+
+Recorded the shared envelope. VC INVEST, MAYBE, and PASS stay separate from the Chair invest, pivot, or pass verdict. MAYBE is not rewritten as pivot.
+
+**Evidence:**
+- File: `party-e272109946de49cf89c6b227f3596c83:projects/6db221e81402447b835e925767b72e7a/src/contract.ts:1-426`
+
+### Annotation A2 · current · open
+**Range:** `20:7-20:126`
+
+> A founder can submit a complete idea brief; incomplete required fields show clear validation and preserve entered text.
+
+#### A2.1 · implemented
+engineer · 2026-10-10T18:39:25.260654+00:00
+
+The idea form validates required fields, shows the errors, and keeps the entered text.
+
+**Evidence:**
+- File: `party-e272109946de49cf89c6b227f3596c83:projects/6db221e81402447b835e925767b72e7a/src/App.tsx:1-176`
+- File: `party-e272109946de49cf89c6b227f3596c83:projects/6db221e81402447b835e925767b72e7a/src/brief.ts:1-90`
+
+### Annotation A3 · current · open
+**Range:** `36:7-36:240`
+
+> Each separately built agent conforms to the shared input/output contract and can be integrated without rebuilding its role logic. VC scores and Maybe positions are preserved distinctly from the Chair's Invest, Pivot, or Pass verdict.
+
+#### A3.1 · implemented
+engineer · 2026-10-10T18:39:26.411301+00:00
+
+Later agent sessions can register instructions against this contract without rebuilding the envelope. VC Maybe remains distinct from the Chair verdict.
+
+**Evidence:**
+- File: `party-e272109946de49cf89c6b227f3596c83:projects/6db221e81402447b835e925767b72e7a/src/contract.ts:1-426`
+- File: `party-e272109946de49cf89c6b227f3596c83:projects/6db221e81402447b835e925767b72e7a/.party/contract.md:1-10`
+
+### Annotation A4 · current · open
+**Range:** `21:7-21:190`
+
+> With valid provider configuration, a submitted idea produces actual AI-generated content for all six roles. The application never labels scripted or fallback content as a real debate.
+
+#### A4.1 · partial
+engineer · 2026-10-10T18:39:27.552450+00:00
+
+Missing credentials and unregistered roles return an honest error. Sample text is never labeled as a debate. The six role instructions are not registered in this foundation session, and no live provider key is attached, so a full six-role run is not verified yet.
+
+**Evidence:**
+- File: `party-e272109946de49cf89c6b227f3596c83:projects/6db221e81402447b835e925767b72e7a/src/provider.ts:1-206`
+
+Reply with `party issue annotation reply <n> <A1> ...`; resolve with `party issue annotation resolve <n> <A1>`.
