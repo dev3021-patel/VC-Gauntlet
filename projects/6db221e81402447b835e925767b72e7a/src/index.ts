@@ -3,3 +3,4 @@ export * from "./contract";
 export * from "./debate";
 export * from "./provider";
 export * from "./chair";
+export * from "./vc";

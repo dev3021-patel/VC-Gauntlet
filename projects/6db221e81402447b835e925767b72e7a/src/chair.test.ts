@@ -59,7 +59,9 @@ function specialist(role: RoleId, position: string, stage: "assessment" | "rebut
     investmentPosition: position,
     strongestInvestmentCase: "Missed calls leak collected revenue.",
     biggestFundabilityRisk: "Scheduling incumbents can bundle a receptionist.",
+    marketSizeConcern: "The clinic segment may not support venture scale.",
     first100Users: "Sell through the founder's clinic network.",
+    defensibilityConcern: "Scheduling incumbents can copy call booking.",
     killShotQuestion: "Who renews after the pilot?",
     oneLineVerdict: "Real leak, unproven company.",
   };
