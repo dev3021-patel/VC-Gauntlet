@@ -18,6 +18,7 @@ import {
   type DebateRun,
 } from "./debate";
 import type { ModelClient } from "./provider";
+import { ENGINEER_CARD_FIELDS } from "./engineer";
 import {
   CHAIR_INSTRUCTIONS,
   chairContextGap,
@@ -84,8 +85,8 @@ function specialist(role: RoleId, position: string, stage: "assessment" | "rebut
     rationale: `${role} argued from the brief, not from a market study.`,
     assumptions: [{ statement: `${role} demand beyond the brief is unproven.`, grounding: "assumption" }],
     risks: [`${role} channel may not repeat.`],
-    positionLabel: role === "competitor" ? "COPYABLE_FEATURE" : position,
-    fields: role === "vc" ? vcFields : role === "competitor" ? competitorFields : role === "red_team"
+    positionLabel: role === "competitor" ? "COPYABLE_FEATURE" : role === "engineer" ? "EASY_MVP" : position,
+    fields: role === "vc" ? vcFields : role === "competitor" ? competitorFields : role === "engineer" ? ENGINEER_CARD_FIELDS : role === "red_team"
       ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which switching claim is evidenced?"] }
       : {},
     changed: stage === "rebuttal" ? changed : undefined,

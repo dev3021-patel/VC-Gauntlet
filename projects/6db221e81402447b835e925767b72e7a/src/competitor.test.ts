@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateBrief } from "./brief";
 import { createRoleRegistry, parseContribution, SPECIALIST_ROLES } from "./contract";
 import { addFounderInput, beginTurn, completeTurn, createRun, retryTurn, type DebateRun } from "./debate";
+import { ENGINEER_CARD_FIELDS } from "./engineer";
 import { buildGenerationPrompt, type ModelClient } from "./provider";
 import { COMPETITOR_INSTRUCTIONS, registerCompetitorAgent, runCompetitorTurn } from "./competitor";
 
@@ -92,7 +93,7 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
           rationale: "Reasoned from the brief.",
           assumptions: [],
           risks: ["risk"],
-          positionLabel: role === "vc" ? "MAYBE" : "skeptical",
+          positionLabel: role === "vc" ? "MAYBE" : role === "engineer" ? "EASY_MVP" : "skeptical",
           fields:
             role === "vc"
               ? {
@@ -106,7 +107,9 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
                   killShotQuestion: "Who renews?",
                   oneLineVerdict: "A feature until it owns the schedule.",
                 }
-              : {},
+              : role === "engineer"
+                ? ENGINEER_CARD_FIELDS
+                : {},
           changed: started.value.lock?.stage === "rebuttal" ? false : undefined,
           changeReason: started.value.lock?.stage === "rebuttal" ? "Holds." : undefined,
         });

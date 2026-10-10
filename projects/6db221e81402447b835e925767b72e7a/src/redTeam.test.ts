@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateBrief, type IdeaBrief } from "./brief";
 import { createRoleRegistry, parseContribution, SPECIALIST_ROLES, type SpecialistRole } from "./contract";
 import { beginTurn, completeTurn, createRun, retryTurn, type DebateRun } from "./debate";
+import { ENGINEER_CARD_FIELDS } from "./engineer";
 import {
   RED_TEAM_INSTRUCTIONS,
   buildRedTeamPrompt,
@@ -603,7 +604,7 @@ function record(run: DebateRun, role: SpecialistRole, summary: string, position:
       rationale: "Reasoned only from the submitted brief.",
       assumptions: [{ statement: "Demand beyond the brief is unproven.", grounding: "assumption" }],
       risks: ["The first channel may not repeat."],
-      positionLabel: role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : position,
+      positionLabel: role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : role === "engineer" ? "EASY_MVP" : position,
       fields: role === "vc" ? vcFields : role === "competitor"
         ? {
             threatScore: 2,
@@ -617,7 +618,9 @@ function record(run: DebateRun, role: SpecialistRole, summary: string, position:
             founderQuestion: "What do you own if the incumbent bundles this?",
             verdict: "This is a feature, not a company.",
           }
-        : { note: summary },
+        : role === "engineer"
+          ? ENGINEER_CARD_FIELDS
+          : { note: summary },
     }),
   );
   if (!done.ok) throw new Error(done.error.message);

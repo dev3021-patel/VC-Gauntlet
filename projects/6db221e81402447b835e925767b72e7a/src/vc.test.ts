@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateBrief } from "./brief";
 import { createRoleRegistry, parseContribution, SPECIALIST_ROLES } from "./contract";
 import { addFounderInput, beginTurn, completeTurn, createRun, retryTurn, type DebateRun } from "./debate";
+import { ENGINEER_CARD_FIELDS } from "./engineer";
 import { buildGenerationPrompt, type ModelClient } from "./provider";
 import { VC_INSTRUCTIONS, registerVcAgent, runVcTurn } from "./vc";
 
@@ -108,8 +109,8 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
           rationale: "Reasoned from the brief.",
           assumptions: [],
           risks: ["risk"],
-          positionLabel: "skeptical",
-          fields: {},
+          positionLabel: role === "engineer" ? "EASY_MVP" : "skeptical",
+          fields: role === "engineer" ? ENGINEER_CARD_FIELDS : {},
           changed: started.value.lock?.stage === "rebuttal" ? false : undefined,
           changeReason: started.value.lock?.stage === "rebuttal" ? "Holds." : undefined,
         });

@@ -5,4 +5,5 @@ export * from "./provider";
 export * from "./chair";
 export * from "./vc";
 export * from "./competitor";
+export * from "./engineer";
 export * from "./redTeam";

@@ -28,6 +28,14 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - A named incumbent the brief does not supply must appear in an assumption or unknown claim. Another labeled claim does not cover it. No citations.
 - A rebuttal quotes the Red Team challenge. Only a rebuttal can change the score or stance. The opening assessment stays in the transcript.
 
+## Engineer Agent
+
+`src/engineer.ts` owns the CTO card. `positionLabel` and `fields.buildPosition` are `EASY_MVP`, `MODERATE_MVP`, `HARD_MVP`, or `TECHNICALLY_RISKY`. That is not a Chair verdict.
+
+- `feasibilityScore` is an integer from 0 to 10. `mvpEstimate` is `HOURS_72`, `WEEKS_2`, `MONTHS_2`, or `MONTHS_6_PLUS`.
+- Risk ratings are `HIGH`, `MEDIUM`, or `LOW`. Text fields cover the simplest MVP, fakeable MVP, real product, data, AI, APIs, infrastructure, security, reliability, cost, what to cut, and the verdict.
+- Opening and rebuttal responses are rejected without the full card.
+
 ## Red Team
 
 `src/redTeam.ts` registers the persona with `registerRedTeamAgent(registry)`. `runRedTeamTurn(run, client, registry)` reviews the opening assessments already on the run. `generateRedTeamReview(request, client, registry)` reviews a supplied brief, ordered assessments, and optional founder defense without reading another run.

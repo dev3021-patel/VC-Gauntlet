@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { validateBrief, type IdeaBrief } from "./brief";
 import { SPECIALIST_ROLES, type RoleId, type SpecialistRole } from "./contract";
+import { ENGINEER_CARD_FIELDS } from "./engineer";
 import {
   addFounderInput,
   beginTurn,
@@ -61,15 +62,25 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
     ],
     risks: ["The first channel may not repeat."],
     positionLabel:
-      role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : role === "chair" ? "pass" : "skeptical",
+      role === "vc"
+        ? "MAYBE"
+        : role === "competitor"
+          ? "COPYABLE_FEATURE"
+          : role === "engineer"
+            ? "EASY_MVP"
+            : role === "chair"
+              ? "pass"
+              : "skeptical",
     fields:
       role === "vc"
         ? vcFields
         : role === "competitor"
           ? competitorFields
-          : role === "red_team"
-            ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which claim is evidenced?"] }
-            : {},
+          : role === "engineer"
+            ? ENGINEER_CARD_FIELDS
+            : role === "red_team"
+              ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which claim is evidenced?"] }
+              : {},
     changed: extra.changed,
     changeReason: extra.changeReason,
     decision: extra.decision,

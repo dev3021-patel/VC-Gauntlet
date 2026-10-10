@@ -36,6 +36,15 @@ export type VcPosition = (typeof VC_POSITIONS)[number];
 export const COMPETITOR_STANCES = ["NOT_A_THREAT", "COPYABLE_FEATURE", "REAL_WEDGE"] as const;
 export type CompetitorStance = (typeof COMPETITOR_STANCES)[number];
 
+export const BUILD_POSITIONS = ["EASY_MVP", "MODERATE_MVP", "HARD_MVP", "TECHNICALLY_RISKY"] as const;
+export type BuildPosition = (typeof BUILD_POSITIONS)[number];
+
+export const MVP_ESTIMATES = ["HOURS_72", "WEEKS_2", "MONTHS_2", "MONTHS_6_PLUS"] as const;
+export type MvpEstimate = (typeof MVP_ESTIMATES)[number];
+
+export const RISK_LEVELS = ["HIGH", "MEDIUM", "LOW"] as const;
+export type RiskLevel = (typeof RISK_LEVELS)[number];
+
 export const CHAIR_VERDICTS = ["invest", "pivot", "pass"] as const;
 export type ChairVerdict = (typeof CHAIR_VERDICTS)[number];
 
@@ -91,6 +100,35 @@ export interface CompetitorScorecard {
   verdict: string;
 }
 
+export interface EngineerScorecard {
+  feasibilityScore: number;
+  buildPosition: BuildPosition;
+  mvpEstimate: MvpEstimate;
+  simplestMvp: string;
+  fakeableMvp: string;
+  realProductRequirements: string;
+  secretlyHardPart: string;
+  dataRequirements: string;
+  dataAccessRisk: RiskLevel;
+  dataAccessExplanation: string;
+  aiComplexity: RiskLevel;
+  aiComplexityExplanation: string;
+  apiDependencies: string;
+  infrastructureComplexity: RiskLevel;
+  infrastructureExplanation: string;
+  securityPrivacyConcern: RiskLevel;
+  securityExplanation: string;
+  reliabilityRisk: RiskLevel;
+  reliabilityExplanation: string;
+  costRisk: RiskLevel;
+  costExplanation: string;
+  buildRisk: string;
+  recommendedApproach: string;
+  whatToCut: string;
+  founderTechQuestion: string;
+  engineerVerdict: string;
+}
+
 export interface RoleEnvelope {
   schemaVersion: typeof SCHEMA_VERSION;
   role: RoleId;
@@ -106,6 +144,7 @@ export interface RoleEnvelope {
   decision: ChairDecision | null;
   vc: VcScorecard | null;
   competitor: CompetitorScorecard | null;
+  engineer: EngineerScorecard | null;
 }
 
 export interface RoleSlot {
@@ -202,6 +241,18 @@ export function isVcPosition(value: string): value is VcPosition {
 
 export function isCompetitorStance(value: string): value is CompetitorStance {
   return (COMPETITOR_STANCES as readonly string[]).includes(value);
+}
+
+export function isBuildPosition(value: string): value is BuildPosition {
+  return (BUILD_POSITIONS as readonly string[]).includes(value);
+}
+
+export function isMvpEstimate(value: string): value is MvpEstimate {
+  return (MVP_ESTIMATES as readonly string[]).includes(value);
+}
+
+export function isRiskLevel(value: string): value is RiskLevel {
+  return (RISK_LEVELS as readonly string[]).includes(value);
 }
 
 export function chairVerdictFromVcPosition(_position: VcPosition): null {
@@ -384,6 +435,110 @@ function parseCompetitor(fields: RoleFields, positionLabel: string): CompetitorS
   };
 }
 
+function parseEngineer(fields: RoleFields, positionLabel: string): EngineerScorecard | null {
+  const feasibilityScore = fields.feasibilityScore;
+  const buildPosition = fields.buildPosition;
+  const mvpEstimate = fields.mvpEstimate;
+  if (
+    typeof feasibilityScore !== "number" ||
+    !Number.isInteger(feasibilityScore) ||
+    feasibilityScore < 0 ||
+    feasibilityScore > 10
+  ) {
+    return null;
+  }
+  if (typeof buildPosition !== "string" || !isBuildPosition(buildPosition) || positionLabel !== buildPosition) {
+    return null;
+  }
+  if (typeof mvpEstimate !== "string" || !isMvpEstimate(mvpEstimate)) return null;
+  const text = (key: string) => requiredField(fields, key);
+  const simplestMvp = text("simplestMvp");
+  const fakeableMvp = text("fakeableMvp");
+  const realProductRequirements = text("realProductRequirements");
+  const secretlyHardPart = text("secretlyHardPart");
+  const dataRequirements = text("dataRequirements");
+  const dataAccessExplanation = text("dataAccessExplanation");
+  const aiComplexityExplanation = text("aiComplexityExplanation");
+  const apiDependencies = text("apiDependencies");
+  const infrastructureExplanation = text("infrastructureExplanation");
+  const securityExplanation = text("securityExplanation");
+  const reliabilityExplanation = text("reliabilityExplanation");
+  const costExplanation = text("costExplanation");
+  const buildRisk = text("buildRisk");
+  const recommendedApproach = text("recommendedApproach");
+  const whatToCut = text("whatToCut");
+  const founderTechQuestion = text("founderTechQuestion");
+  const engineerVerdict = text("engineerVerdict");
+  const dataAccessRisk = fields.dataAccessRisk;
+  const aiComplexity = fields.aiComplexity;
+  const infrastructureComplexity = fields.infrastructureComplexity;
+  const securityPrivacyConcern = fields.securityPrivacyConcern;
+  const reliabilityRisk = fields.reliabilityRisk;
+  const costRisk = fields.costRisk;
+  if (
+    !simplestMvp ||
+    !fakeableMvp ||
+    !realProductRequirements ||
+    !secretlyHardPart ||
+    !dataRequirements ||
+    !dataAccessExplanation ||
+    !aiComplexityExplanation ||
+    !apiDependencies ||
+    !infrastructureExplanation ||
+    !securityExplanation ||
+    !reliabilityExplanation ||
+    !costExplanation ||
+    !buildRisk ||
+    !recommendedApproach ||
+    !whatToCut ||
+    !founderTechQuestion ||
+    !engineerVerdict ||
+    !founderTechQuestion.includes("?") ||
+    typeof dataAccessRisk !== "string" ||
+    !isRiskLevel(dataAccessRisk) ||
+    typeof aiComplexity !== "string" ||
+    !isRiskLevel(aiComplexity) ||
+    typeof infrastructureComplexity !== "string" ||
+    !isRiskLevel(infrastructureComplexity) ||
+    typeof securityPrivacyConcern !== "string" ||
+    !isRiskLevel(securityPrivacyConcern) ||
+    typeof reliabilityRisk !== "string" ||
+    !isRiskLevel(reliabilityRisk) ||
+    typeof costRisk !== "string" ||
+    !isRiskLevel(costRisk)
+  ) {
+    return null;
+  }
+  return {
+    feasibilityScore,
+    buildPosition,
+    mvpEstimate,
+    simplestMvp,
+    fakeableMvp,
+    realProductRequirements,
+    secretlyHardPart,
+    dataRequirements,
+    dataAccessRisk,
+    dataAccessExplanation,
+    aiComplexity,
+    aiComplexityExplanation,
+    apiDependencies,
+    infrastructureComplexity,
+    infrastructureExplanation,
+    securityPrivacyConcern,
+    securityExplanation,
+    reliabilityRisk,
+    reliabilityExplanation,
+    costRisk,
+    costExplanation,
+    buildRisk,
+    recommendedApproach,
+    whatToCut,
+    founderTechQuestion,
+    engineerVerdict,
+  };
+}
+
 function parseDecision(record: Record<string, unknown>): ChairDecision | null {
   const verdict = record.verdict;
   if (typeof verdict !== "string" || !isChairVerdict(verdict)) return null;
@@ -459,6 +614,7 @@ export function parseContribution(
   let decision: ChairDecision | null = null;
   let vc: VcScorecard | null = null;
   let competitor: CompetitorScorecard | null = null;
+  let engineer: EngineerScorecard | null = null;
   if (role === "chair") {
     if (stage !== "verdict") return invalid("The Chair only speaks at the verdict.");
     const decisionRecord = asRecord(record.decision);
@@ -486,6 +642,15 @@ export function parseContribution(
     if (!competitor) {
       return invalid(
         "Competitor responses require a 0-10 threat score and NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE.",
+      );
+    }
+  }
+
+  if (role === "engineer" && (stage === "assessment" || stage === "rebuttal")) {
+    engineer = parseEngineer(fields, positionLabel);
+    if (!engineer) {
+      return invalid(
+        "Engineer responses require a 0-10 feasibility score, EASY_MVP, MODERATE_MVP, HARD_MVP, or TECHNICALLY_RISKY, and the full technical card. That position is not a Chair verdict.",
       );
     }
   }
@@ -519,6 +684,7 @@ export function parseContribution(
       decision,
       vc,
       competitor,
+      engineer,
     },
   };
 }
