@@ -33,10 +33,17 @@ export function createApplication(clientDirectory: string) {
   });
 }
 
+export function listenHost(env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.HOST?.trim();
+  if (configured) return configured;
+  return env.RAILWAY_ENVIRONMENT ? "0.0.0.0" : "127.0.0.1";
+}
+
 if (process.env.GAUNTLET_START_SERVER === "1") {
   const port = Number(process.env.PORT || 3000);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT must be an integer from 1 to 65535.");
-  createApplication(resolve(dirname(fileURLToPath(import.meta.url)), "client")).listen(port, "127.0.0.1", () => {
-    console.log(`Venture Gauntlet is listening on localhost port ${port}.`);
+  const host = listenHost();
+  createApplication(resolve(dirname(fileURLToPath(import.meta.url)), "client")).listen(port, host, () => {
+    console.log(`Venture Gauntlet is listening on ${host} port ${port}.`);
   });
 }
