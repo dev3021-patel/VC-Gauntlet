@@ -1,0 +1,13 @@
+.git
+**/.aws
+**/.ssh
+**/.codex
+.env*
+.venv
+backend/.venv
+.local
+node_modules
+dist
+**/__pycache__
+**/.pytest_cache
+coverage

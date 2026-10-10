@@ -1,0 +1,1808 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@500;600;700;800&display=swap');
+
+:root {
+  font-family: 'Manrope', system-ui, sans-serif;
+  color: #f2f8e9;
+  background: #050b09;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  min-width: 320px;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+button,
+output {
+  font: inherit;
+}
+
+button {
+  color: inherit;
+}
+
+.game-shell,
+.map-viewport {
+  width: 100%;
+  height: 100%;
+}
+
+.map-viewport {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: #07100d;
+}
+
+.map-viewport::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  content: '';
+  box-shadow: inset 0 0 100px rgb(0 0 0 / 42%);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: default;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+canvas.is-panning {
+  cursor: grabbing;
+}
+
+canvas:focus {
+  outline: none;
+}
+
+.player-location {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.player-marker {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  justify-items: center;
+  min-width: 92px;
+  color: #f2f8e9;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 1px 3px #050b09, 0 0 8px #050b09;
+  pointer-events: none;
+}
+
+.player-marker-name {
+  /* Only the avatar contributes to the marker's centering dimensions. */
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  width: max-content;
+  max-width: 160px;
+  transform: translateX(-50%);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.player-marker--remote {
+  pointer-events: none;
+}
+
+.player-marker-visual {
+  position: relative;
+  display: grid;
+}
+
+.player-marker-visual > .avatar-md { border-radius: 50%; }
+
+/* R taunt: a short cosmetic buzz; duration matches TAUNT_MS in useWorldSync. */
+.player-marker-visual--taunting { animation: player-taunt 500ms linear; }
+
+@keyframes player-taunt {
+  0%, 100% { transform: translateY(0); }
+  12.5%, 37.5%, 62.5%, 87.5% { transform: translateY(-5px); }
+  25%, 50%, 75% { transform: translateY(5px); }
+}
+
+@keyframes player-taunt-pulse {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.65; filter: brightness(1.8); }
+}
+
+.spawn-smoke {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 68px;
+  height: 58px;
+  pointer-events: none;
+  animation: spawn-smoke-clear 820ms steps(6, end) forwards;
+}
+
+.spawn-smoke-puff {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 26px;
+  height: 22px;
+  margin: -11px 0 0 -13px;
+  border: 3px solid #29332f;
+  border-radius: 48% 55% 43% 58%;
+  background: #d7ded8;
+  box-shadow: inset -4px -4px 0 #87938d, inset 3px 3px 0 #f7faf6;
+  animation: spawn-smoke-jumble 180ms steps(2, jump-none) infinite alternate;
+}
+
+.spawn-smoke-puff--1 { --smoke-x: -22px; --smoke-y: -13px; animation-delay: -30ms; }
+.spawn-smoke-puff--2 { --smoke-x: 0px; --smoke-y: -20px; animation-delay: -110ms; }
+.spawn-smoke-puff--3 { --smoke-x: 21px; --smoke-y: -12px; animation-delay: -70ms; }
+.spawn-smoke-puff--4 { --smoke-x: -27px; --smoke-y: 7px; animation-delay: -140ms; }
+.spawn-smoke-puff--5 { --smoke-x: -8px; --smoke-y: 3px; animation-delay: -50ms; }
+.spawn-smoke-puff--6 { --smoke-x: 14px; --smoke-y: 5px; animation-delay: -160ms; }
+.spawn-smoke-puff--7 { --smoke-x: 29px; --smoke-y: 10px; animation-delay: -90ms; }
+.spawn-smoke-puff--8 { --smoke-x: -15px; --smoke-y: 19px; animation-delay: -120ms; }
+.spawn-smoke-puff--9 { --smoke-x: 10px; --smoke-y: 20px; animation-delay: -10ms; }
+
+@keyframes spawn-smoke-jumble {
+  from { translate: calc(var(--smoke-x) - 3px) calc(var(--smoke-y) + 2px); rotate: -7deg; }
+  to { translate: calc(var(--smoke-x) + 3px) calc(var(--smoke-y) - 2px); rotate: 7deg; }
+}
+
+@keyframes spawn-smoke-clear {
+  0%, 38% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/*
+ * Grass parting beside the avatar after a step onto land: two tufts flank
+ * its lower half, clear of the 34 px avatar and the name label below it. The
+ * footprint (64x12 px, 4 px below the cell center) mirrors GRASS_PATCH; the
+ * draw loop hides the patch whenever any terrain under it is not the same
+ * grass. Blades use that grass color (--grass-color) with the terrain's speck
+ * highlight, lean with the direction of travel, and settle within
+ * GRASS_RUSTLE_MS (350 ms).
+ */
+.grass-rustle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  width: 64px;
+  height: 12px;
+  margin-top: 4px;
+  pointer-events: none;
+  --grass-lean: 0deg;
+  --grass-squash: 0.6;
+  --grass-shift: 0px;
+}
+
+.grass-rustle--east { --grass-lean: 30deg; --grass-squash: 0.85; }
+.grass-rustle--west { --grass-lean: -30deg; --grass-squash: 0.85; }
+.grass-rustle--north { --grass-shift: -2px; }
+.grass-rustle--south { --grass-shift: 2px; }
+
+.grass-rustle-tuft {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  width: 13px;
+  height: 100%;
+  justify-content: center;
+}
+
+.grass-rustle-blade {
+  width: 3px;
+  height: 10px;
+  border-radius: 2px 2px 0 0;
+  background: var(--grass-color);
+  box-shadow: inset 1px 0 0 var(--grass-speck), inset 0 1px 0 var(--grass-speck);
+  transform-origin: 50% 100%;
+  animation: grass-rustle-sway 350ms ease-out forwards;
+}
+
+.grass-rustle-blade--2 { height: 12px; }
+.grass-rustle-blade--3 { height: 8px; }
+
+@keyframes grass-rustle-sway {
+  0% { opacity: 0.9; transform: rotate(0deg) scaleY(1); }
+  30% { opacity: 0.9; transform: translateY(var(--grass-shift)) rotate(var(--grass-lean)) scaleY(var(--grass-squash)); }
+  70% { opacity: 0.6; transform: rotate(calc(var(--grass-lean) * -0.25)) scaleY(1); }
+  100% { opacity: 0; transform: rotate(0deg) scaleY(1); }
+}
+
+/* Keep the name label clear of the ring(s). */
+
+.facing-indicator {
+  /*
+   * Direction badge on the avatar's facing edge so the sprite stays visible.
+   * Centered on the north/east/south/west midpoint of the 34px avatar; it is
+   * absolutely positioned so it never contributes to the marker's footprint.
+   * Negative z-index keeps it behind the
+   * in-flow avatar inside the .player-marker stacking context, so the sprite
+   * stays the top layer and only the badge's outer half shows (Issue #74).
+   */
+  position: absolute;
+  z-index: -1;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgb(5 11 9 / 60%);
+  color: #fff4a8;
+  pointer-events: none;
+}
+.facing-indicator::before {
+  /* Drawn arrow (not a font glyph) so every direction has identical weight and exact centering. */
+  content: '';
+  width: 10px;
+  height: 12px;
+  background: currentColor;
+  clip-path: polygon(50% 0, 100% 50%, 70% 50%, 70% 100%, 30% 100%, 30% 50%, 0 50%);
+  filter: drop-shadow(0 1px 1px #000) drop-shadow(0 0 1px #000);
+}
+.facing-indicator--north { top: -9px; left: calc(50% - 9px); }
+.facing-indicator--south { bottom: -9px; left: calc(50% - 9px); rotate: 180deg; }
+.facing-indicator--east { top: calc(50% - 9px); right: -9px; rotate: 90deg; }
+.facing-indicator--west { top: calc(50% - 9px); left: -9px; rotate: 270deg; }
+
+/* Laser: one cell-aligned flash per lane cell, a terrain cap, and impact rings. Aim guide is a faint local preview. */
+.laser-beam, .laser-stop, .laser-impact, .laser-aim, .laser-aim-stop {
+  position: absolute; top: 0; left: 0; z-index: 2; box-sizing: border-box; pointer-events: none;
+  transform: translate(-50%, -50%);
+}
+.laser-beam::before, .laser-aim::before, .laser-stop::before, .laser-aim-stop::before {
+  content: ''; position: absolute; border-radius: 999px;
+}
+.laser-beam { animation: laser-flash var(--laser-flash, 520ms) ease-out both; }
+.laser-beam::before { background: #fffbe0; box-shadow: 0 0 6px 2px #ff5ad6, 0 0 14px 4px rgb(255 90 214 / 55%); }
+.laser-beam--horizontal::before { left: 0; right: 0; top: 40%; height: 20%; border-radius: 0; }
+.laser-beam--vertical::before { top: 0; bottom: 0; left: 40%; width: 20%; border-radius: 0; }
+/* The cap sits on the stop cell's near edge: the beam visibly hits the wall rather than fading out. */
+.laser-stop { animation: laser-flash var(--laser-flash, 520ms) ease-out both; }
+.laser-stop::before { background: #fff; box-shadow: 0 0 8px 3px #ff5ad6; }
+.laser-stop--east::before { left: -3px; top: 18%; bottom: 18%; width: 6px; }
+.laser-stop--west::before { right: -3px; top: 18%; bottom: 18%; width: 6px; }
+.laser-stop--south::before { top: -3px; left: 18%; right: 18%; height: 6px; }
+.laser-stop--north::before { bottom: -3px; left: 18%; right: 18%; height: 6px; }
+.laser-impact {
+  z-index: 3; border: 3px solid #ff5ad6; border-radius: 50%;
+  box-shadow: 0 0 10px 2px rgb(255 90 214 / 70%), inset 0 0 8px rgb(255 251 224 / 70%);
+  animation: laser-impact var(--laser-flash, 520ms) ease-out both;
+}
+.laser-aim::before { background: rgb(255 90 214 / 34%); }
+.laser-aim--horizontal::before { left: 18%; right: 18%; top: 46%; height: 8%; }
+.laser-aim--vertical::before { top: 18%; bottom: 18%; left: 46%; width: 8%; }
+.laser-aim-stop::before { background: rgb(255 90 214 / 55%); }
+/* While recharging the guide stays, dimmed, so aim is never lost. */
+.laser-aim--recharging::before { background: rgb(255 90 214 / 14%); }
+.laser-aim-stop--east::before { left: -1px; top: 30%; bottom: 30%; width: 3px; }
+.laser-aim-stop--west::before { right: -1px; top: 30%; bottom: 30%; width: 3px; }
+.laser-aim-stop--south::before { top: -1px; left: 30%; right: 30%; height: 3px; }
+.laser-aim-stop--north::before { bottom: -1px; left: 30%; right: 30%; height: 3px; }
+/* Reduced motion: the same flash, drawn static for its lifetime. */
+.laser--reduced { animation: none; opacity: 1; }
+
+@keyframes laser-flash {
+  0% { opacity: 1; filter: brightness(1.8); }
+  35% { opacity: 1; filter: brightness(1); }
+  100% { opacity: 0; }
+}
+
+@keyframes laser-impact {
+  0% { opacity: 1; scale: 0.5; }
+  100% { opacity: 0; scale: 1; }
+}
+
+.death-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  color: #f7fff8;
+  background: rgb(18 3 3 / 76%);
+  backdrop-filter: blur(8px);
+}
+
+.death-screen h2 { max-width: 100%; overflow-wrap: anywhere; text-align: center; margin: 0 0 8px; font-size: clamp(30px, 6vw, 58px); }
+.death-attacker { color: #d9ff9a; font-weight: 900; }
+.death-screen { padding: 20px; overflow-y: auto; }
+.death-screen p { margin: 0 0 22px; color: #ffc0a8; }
+.death-screen button { padding: 11px 18px; border-radius: 9px; border: 1px solid #d9ff9a; background: #13271d; color: #efffe8; font-weight: 800; }
+.death-screen button:disabled { opacity: 0.42; }
+.death-screen button kbd { margin-left: 6px; padding: 2px 5px; border: 1px solid currentColor; border-radius: 4px; font: 700 11px/1 'DM Mono', monospace; }
+
+.connection-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  padding: 24px;
+  color: #f2f8e9;
+  text-align: center;
+  background: radial-gradient(circle at center, rgb(16 43 33 / 98%), rgb(3 11 8 / 100%));
+}
+
+.connection-screen h2 {
+  margin: 18px 0 7px;
+  font-size: clamp(1.25rem, 3vw, 1.8rem);
+}
+
+.connection-screen p {
+  margin: 0;
+  color: rgb(222 239 213 / 76%);
+}
+
+.connection-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid rgb(217 255 154 / 18%);
+  border-top-color: #d9ff9a;
+  border-radius: 50%;
+  animation: connection-spin 800ms linear infinite;
+}
+
+@keyframes connection-spin {
+  to { transform: rotate(360deg); }
+}
+
+.sync-message {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: 5.5rem;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0.55rem 0.8rem;
+  border-radius: 0.55rem;
+  color: #fff8e8;
+  background: rgba(89, 34, 25, 0.9);
+}
+
+.brand-panel,
+.world-badge,
+.navigation-help {
+  position: absolute;
+  z-index: 2;
+}
+
+.control-dock {
+  position: absolute;
+  z-index: 4;
+}
+
+/* Reduced motion: static flight, impact, and blast indicators for the same durations. */
+
+.brand-panel {
+  top: max(20px, env(safe-area-inset-top));
+  left: max(22px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 16px rgb(0 0 0 / 34%));
+}
+
+.brand-mark {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, 9px);
+  grid-template-rows: repeat(2, 9px);
+  width: 23px;
+  height: 23px;
+  transform: rotate(45deg);
+}
+
+.brand-mark span {
+  display: block;
+  background: #d9ff9a;
+  box-shadow: 0 0 12px rgb(217 255 154 / 38%);
+}
+
+.brand-mark span:nth-child(1) {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.brand-mark span:nth-child(2) {
+  grid-column: 2;
+  grid-row: 1;
+  opacity: 0.72;
+}
+
+.brand-mark span:nth-child(3) {
+  grid-column: 1;
+  grid-row: 2;
+  opacity: 0.46;
+}
+
+.eyebrow {
+  margin: 0 0 2px;
+  color: #a8b9ad;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(17px, 2vw, 22px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.world-badge {
+  top: max(23px, env(safe-area-inset-top));
+  right: max(22px, env(safe-area-inset-right));
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  height: 32px;
+  padding: 0 12px;
+  color: #c4d0c6;
+  border: 1px solid rgb(210 245 180 / 13%);
+  border-radius: 9px;
+  background: rgb(7 20 16 / 76%);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(16px);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #d9ff9a;
+  box-shadow: 0 0 9px #d9ff9a;
+}
+
+.status-dot--syncing,
+.status-dot--reconnecting {
+  background: #8fa39a;
+  box-shadow: none;
+}
+
+.status-dot--unavailable {
+  background: #ff8b7a;
+  box-shadow: 0 0 9px #ff8b7a;
+}
+
+.backend-status {
+  white-space: nowrap;
+}
+
+.badge-divider,
+.control-divider {
+  width: 1px;
+  background: rgb(255 255 255 / 12%);
+}
+
+.badge-divider {
+  height: 12px;
+}
+
+/* Under the brand, clear of the full-width control dock; the full key list lives in How to play. */
+.navigation-help {
+  top: max(62px, calc(env(safe-area-inset-top) + 42px));
+  left: max(24px, env(safe-area-inset-left));
+  color: rgb(210 224 212 / 58%);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.015em;
+  pointer-events: none;
+}
+
+.mobile-help {
+  display: none;
+}
+
+.control-dock {
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(20px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-controls {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 4px;
+  border: 1px solid rgb(217 255 154 / 17%);
+  border-radius: 12px;
+  background: rgb(6 18 14 / 88%);
+  box-shadow: 0 15px 40px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(18px);
+}
+
+.map-controls[aria-hidden='true'] {
+  visibility: hidden;
+}
+
+.map-controls button {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease, transform 140ms ease;
+}
+
+.map-controls button:hover {
+  color: #d9ff9a;
+  background: rgb(217 255 154 / 9%);
+}
+
+.map-controls button:active {
+  transform: scale(0.94);
+}
+
+.map-controls button:focus-visible {
+  outline: 2px solid #d9ff9a;
+  outline-offset: 1px;
+}
+
+.map-controls button > span:first-child {
+  font-size: 21px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.map-controls output {
+  width: 56px;
+  color: #aebcb1;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  text-align: center;
+}
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.control-divider {
+  height: 22px;
+  margin: 0 4px;
+}
+
+.map-controls .fit-button {
+  display: flex;
+  gap: 7px;
+  padding: 0 11px;
+  color: #dce7dd;
+}
+
+.map-controls .fit-button > span:first-child {
+  font-size: 16px;
+}
+
+.map-controls .fit-button[aria-pressed='true'] {
+  color: #d9ff9a;
+  background: rgb(217 255 154 / 16%);
+  box-shadow: inset 0 0 0 1px rgb(217 255 154 / 55%);
+}
+
+.fit-button span:last-child {
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+@media (pointer: coarse), (max-width: 680px) {
+  .brand-panel {
+    top: max(16px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+  }
+
+  .world-badge {
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+  }
+
+  .navigation-help {
+    top: auto;
+    bottom: max(80px, calc(env(safe-area-inset-bottom) + 66px));
+    left: 50%;
+    width: max-content;
+    transform: translateX(-50%);
+  }
+
+  .desktop-help {
+    display: none;
+  }
+
+  .mobile-help {
+    display: inline;
+  }
+
+  .control-dock {
+    right: 50%;
+    bottom: max(16px, env(safe-area-inset-bottom));
+    transform: translateX(50%);
+  }
+}
+
+@media (max-width: 520px) {
+  .control-dock { gap: 5px; }
+  .map-controls .fit-button span:last-child { display: none; }
+  .map-controls .fit-button { padding: 0 8px; }
+}
+
+@media (max-width: 430px) {
+  .eyebrow,
+  .badge-divider,
+  .world-size,
+  .backend-status {
+    display: none;
+  }
+
+  .brand-mark {
+    grid-template-columns: repeat(2, 7px);
+    grid-template-rows: repeat(2, 7px);
+    width: 18px;
+    height: 18px;
+  }
+
+  .brand-panel {
+    gap: 10px;
+  }
+
+  .world-badge {
+    height: 30px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .player-marker-visual--taunting { animation: player-taunt-pulse 500ms ease-out; }
+
+  .laser-beam, .laser-stop, .laser-impact {
+    animation: none;
+    opacity: 1;
+  }
+
+  .map-controls button {
+    transition: none;
+  }
+
+  .connection-spinner {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Register modal
+   --------------------------------------------------------------------------- */
+
+.game-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  color: var(--avatar-color, #d9ff9a);
+  border: 1px solid color-mix(in srgb, var(--avatar-color, #d9ff9a) 45%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--avatar-color, #d9ff9a) 14%, rgb(7 20 16 / 90%));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--avatar-color, #d9ff9a) 22%, transparent);
+  line-height: 1;
+}
+
+.avatar-sm {
+  width: 24px;
+  height: 24px;
+  font-size: 12px;
+}
+
+.avatar-md {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+}
+
+.avatar-lg {
+  width: 44px;
+  height: 44px;
+  font-size: 21px;
+}
+
+.avatar--sprite {
+  overflow: visible;
+  color: inherit;
+  border-color: transparent;
+  background: transparent;
+}
+
+.avatar--sprite img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+  user-select: none;
+}
+
+.register-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+  overflow: auto;
+  background: rgb(3 8 6 / 62%);
+  backdrop-filter: blur(6px);
+}
+
+.register-modal {
+  width: min(100%, 440px);
+  padding: 30px 28px 26px;
+  border: 1px solid rgb(217 255 154 / 15%);
+  border-radius: 18px;
+  background: rgb(6 18 14 / 94%);
+  box-shadow: 0 30px 80px rgb(0 0 0 / 45%);
+  animation: register-in 180ms ease-out;
+}
+
+@keyframes register-in {
+  from {
+    transform: translateY(10px) scale(0.98);
+    opacity: 0;
+  }
+
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+.register-header {
+  display: flex;
+  gap: 13px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.register-header h2 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border: 1px solid rgb(217 255 154 / 13%);
+  border-radius: 10px;
+  background: rgb(0 0 0 / 22%);
+}
+
+.mode-switch button {
+  height: 34px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #a8b9ad;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.mode-switch button.is-active {
+  color: #071410;
+  background: #d9ff9a;
+}
+
+.mode-switch button:focus-visible {
+  outline: 2px solid #d9ff9a;
+  outline-offset: 2px;
+}
+
+.pin-input {
+  font-family: 'DM Mono', monospace;
+  letter-spacing: 0.4em;
+  /* Mask digits without type="password", which would trigger browser save-password prompts. */
+  -webkit-text-security: disc;
+}
+
+.register-lede {
+  margin: 0 0 18px;
+  color: #c4d0c6;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.register-form {
+  display: grid;
+  gap: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.field label,
+.field legend {
+  padding: 0;
+  color: #a8b9ad;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+}
+
+.field legend {
+  margin-bottom: 8px;
+}
+
+.field input:not([type='radio'], [type='range'], [type='file']) {
+  width: 100%;
+  height: 46px;
+  padding: 0 14px;
+  color: #f2f8e9;
+  border: 1px solid rgb(210 245 180 / 18%);
+  border-radius: 10px;
+  background: rgb(0 0 0 / 28%);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.field input:not([type='radio'], [type='range'], [type='file'])::placeholder {
+  color: rgb(168 185 173 / 55%);
+  font-weight: 500;
+}
+
+.field input:not([type='radio'], [type='range'], [type='file']):focus-visible {
+  outline: none;
+  border-color: #d9ff9a;
+  box-shadow: 0 0 0 3px rgb(217 255 154 / 22%);
+}
+
+.field input[aria-invalid='true'] {
+  border-color: #ff9f6b;
+}
+
+.field-error {
+  margin: 0;
+  color: #ffb08a;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.avatar-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.avatar-option {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  justify-items: center;
+  padding: 12px 6px 10px;
+  border: 1px solid rgb(210 245 180 / 13%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 22%);
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.avatar-option:hover {
+  border-color: rgb(217 255 154 / 40%);
+}
+
+.avatar-option input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.avatar-option:has(input:checked) {
+  border-color: #d9ff9a;
+  background: rgb(217 255 154 / 9%);
+}
+
+.avatar-option:has(input:focus-visible) {
+  outline: 2px solid #d9ff9a;
+  outline-offset: 2px;
+}
+
+.avatar-option-label {
+  color: #dce7dd;
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* The grid scrolls on its own so the title, guidance, errors, and actions stay reachable. */
+.avatar-grid-scroll {
+  max-height: min(44dvh, 340px);
+  margin: -4px;
+  padding: 4px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.avatar-option--in-use {
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.avatar-option--in-use:hover { border-color: rgb(210 245 180 / 13%); }
+.avatar-option--in-use input { cursor: not-allowed; }
+.avatar-option--in-use .avatar,
+.avatar-option--in-use .avatar-option-label { opacity: .45; filter: grayscale(.85); }
+
+.avatar-option-status {
+  color: #ffb08a;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.avatar--sprite.avatar--custom {
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--avatar-color, #d9ff9a) 45%, transparent);
+}
+
+.avatar--custom img {
+  object-fit: cover;
+  image-rendering: pixelated;
+  border-radius: 50%;
+}
+
+.avatar-upload {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.field .avatar-upload-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  padding: 0 18px;
+  color: #dce7dd;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+  cursor: pointer;
+}
+
+.avatar-upload-button:has(input:focus-visible) { outline: 2px solid #d9ff9a; outline-offset: 2px; }
+.avatar-upload-button.is-disabled { opacity: .5; cursor: not-allowed; }
+
+.avatar-upload-hint {
+  margin: 0;
+  color: #a8b9ad;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.avatar-crop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+}
+
+.avatar-crop-preview {
+  flex: none;
+  width: 112px;
+  height: 112px;
+  border: 2px solid #d9ff9a;
+  border-radius: 50%;
+  background-color: rgb(0 0 0 / 40%);
+  image-rendering: pixelated;
+}
+
+.avatar-crop-controls {
+  display: grid;
+  flex: 1 1 200px;
+  gap: 8px;
+}
+
+.field .avatar-crop-slider {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.avatar-crop-slider input {
+  width: 100%;
+  accent-color: #d9ff9a;
+}
+
+.avatar-crop-slider input:focus-visible { outline: 2px solid #d9ff9a; outline-offset: 2px; }
+
+.avatar-crop-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.primary-button {
+  height: 44px;
+  padding: 0 18px;
+  color: #071410;
+  border: 0;
+  border-radius: 10px;
+  background: #d9ff9a;
+  box-shadow: 0 10px 30px rgb(217 255 154 / 18%);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+.primary-button:hover {
+  background: #e8ffb8;
+}
+
+.primary-button:active {
+  transform: scale(0.97);
+}
+
+.primary-button:focus-visible {
+  outline: 2px solid #d9ff9a;
+  outline-offset: 2px;
+}
+
+.register-footnote {
+  margin: 0;
+  color: rgb(168 185 173 / 75%);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.notice {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.notice-error {
+  color: #ffb08a;
+  border: 1px solid rgb(255 159 107 / 30%);
+  background: rgb(255 159 107 / 9%);
+}
+
+.avatar-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+  overflow: auto;
+  background: rgb(3 8 6 / 74%);
+  backdrop-filter: blur(7px);
+}
+
+.avatar-modal {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - max(40px, env(safe-area-inset-top) + env(safe-area-inset-bottom)));
+  padding: clamp(18px, 4vw, 28px);
+  overflow: auto;
+  border: 1px solid rgb(217 255 154 / 24%);
+  border-radius: 18px;
+  background: rgb(7 20 16 / 98%);
+  box-shadow: 0 28px 80px rgb(0 0 0 / 55%);
+}
+
+.avatar-modal h2 { margin: 2px 0 6px; font-size: clamp(24px, 5vw, 34px); }
+.avatar-modal header > p:last-child { margin: 0 0 20px; color: #b9c8bc; line-height: 1.5; }
+.avatar-modal form { display: grid; gap: 18px; }
+/* The grid gets what the header, upload row, and Save/Cancel leave of the viewport. */
+.avatar-modal .avatar-grid-scroll { max-height: clamp(132px, calc(100dvh - 430px), 440px); }
+.avatar-modal .avatar-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+.avatar-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.secondary-button {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgb(210 245 180 / 26%);
+  border-radius: 10px;
+  color: #dce7dd;
+  background: transparent;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.secondary-button:focus-visible { outline: 2px solid #d9ff9a; outline-offset: 2px; }
+.secondary-button:disabled, .avatar-modal .primary-button:disabled { opacity: .5; cursor: not-allowed; }
+
+@media (max-width: 540px) {
+  .avatar-modal .avatar-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .avatar-grid-scroll { max-height: min(38dvh, 300px); }
+  .avatar-modal .avatar-grid-scroll { max-height: clamp(132px, calc(100dvh - 460px), 440px); }
+  .avatar-crop-preview { width: 88px; }
+  .avatar-modal .avatar-option { padding-inline: 3px; }
+  .avatar-modal-actions > button { flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .register-modal {
+    animation: none;
+  }
+
+  .spawn-smoke { animation: spawn-smoke-fade 600ms linear forwards; }
+  .spawn-smoke-puff { animation: none; translate: var(--smoke-x) var(--smoke-y); }
+  .grass-rustle { display: none; }
+
+  .avatar-option,
+  .avatar-change-control,
+  .field input,
+  .primary-button,
+  .mode-switch button {
+    transition: none;
+  }
+}
+
+@keyframes spawn-smoke-fade {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.game-action-controls {
+  position: absolute;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(76px, calc(env(safe-area-inset-bottom) + 66px));
+  z-index: 5;
+  display: grid;
+  justify-items: stretch;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 40px);
+}
+
+/* Shared pill design for the bottom-right action (Issue #71); per-control rules add accents. */
+.game-action-controls > * {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0;
+  padding: 9px 13px;
+  border: 1px solid rgb(255 244 168 / 35%);
+  border-radius: 10px;
+  color: #fff4a8;
+  background: rgb(6 18 14 / 90%);
+  font: 700 11px/1 'DM Mono', monospace;
+  text-align: center;
+}
+.game-action-controls kbd {
+  padding: 2px 4px;
+  border: 1px solid currentColor;
+  border-radius: 3px;
+  font: inherit;
+}
+
+.avatar-change-control {
+  color: #efffe8;
+  border-color: rgb(217 255 154 / 42%);
+  cursor: pointer;
+}
+
+.avatar-change-control:hover { color: #071410; background: #d9ff9a; }
+.avatar-change-control:disabled { opacity: .5; cursor: not-allowed; }
+.avatar-change-control:focus-visible { outline: 3px solid #d9ff9a; outline-offset: 3px; }
+
+/* ---------------------------------------------------------------------------
+   Clean view and fullscreen
+   --------------------------------------------------------------------------- */
+
+.view-controls {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  padding: 4px;
+  border: 1px solid rgb(217 255 154 / 17%);
+  border-radius: 12px;
+  background: rgb(6 18 14 / 88%);
+  box-shadow: 0 15px 40px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(18px);
+}
+
+.view-controls button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 8px;
+  color: #dce7dd;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.view-controls button > span:first-child { font-size: 16px; line-height: 1; }
+.view-controls button:hover { color: #d9ff9a; background: rgb(217 255 154 / 9%); }
+.view-controls button[aria-pressed='true'] { color: #d9ff9a; background: rgb(217 255 154 / 14%); }
+.view-controls button:focus-visible { outline: 2px solid #d9ff9a; outline-offset: 1px; }
+.view-controls button:disabled { opacity: 0.45; cursor: not-allowed; }
+.view-controls .restore-ui { color: #fff4a8; }
+
+.view-notice {
+  position: absolute;
+  z-index: 4;
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(74px, calc(env(safe-area-inset-bottom) + 54px));
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #fff8e8;
+  background: rgba(89, 34, 25, 0.9);
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+
+.map-viewport--clean .control-dock { opacity: 0.82; }
+.map-viewport--clean .control-dock:hover, .map-viewport--clean .control-dock:focus-within { opacity: 1; }
+
+@media (pointer: coarse), (max-width: 680px) {
+  .control-dock { flex-wrap: wrap; justify-content: flex-end; max-width: calc(100vw - 32px); }
+  .view-controls button > span:last-child { display: none; }
+  .view-controls button { min-width: 36px; padding: 0 8px; justify-content: center; }
+}
+
+/* Enemy mobs: server-driven, clearly hostile, with visible remaining health.
+   The marker is exactly the body, centred on the mob's cell; the body is the
+   world-space hitbox (`MOB_BODY_SIZE` cells, set as --mob-body-size per frame),
+   and the health bar sits outside it so it never shifts or enlarges the body. */
+.mob-marker {
+  --mob-body-size: 20px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: grid;
+  pointer-events: none;
+}
+
+.mob-marker-body {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  place-content: center;
+  gap: calc(var(--mob-body-size) * 0.19);
+  width: var(--mob-body-size);
+  height: var(--mob-body-size);
+  border: 2px solid #ffb3a7;
+  border-radius: 7px 7px 11px 11px;
+  background: radial-gradient(circle at 50% 30%, #c8324a, #6d0f1f 70%);
+  box-shadow: 0 0 0 2px #2a0509, 0 0 12px #ff3b3b;
+  animation: mob-breathe 1.4s ease-in-out infinite alternate;
+}
+
+.mob-marker-eye {
+  width: calc(var(--mob-body-size) * 0.19);
+  height: calc(var(--mob-body-size) * 0.27);
+  border-radius: 2px;
+  background: #fff4c2;
+  box-shadow: 0 0 5px #ffe37a;
+}
+
+.mob-marker--north .mob-marker-body { border-radius: 11px 11px 7px 7px; }
+
+/* Fighting-game style life bar above the body: full is bright, damage drains from the right. */
+.mob-health-bar {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: block;
+  width: 34px;
+  height: 6px;
+  border: 1px solid #ffe9b0;
+  border-radius: 2px;
+  background: #3a0a10;
+  box-shadow: 0 0 0 1px #2a0509;
+  overflow: hidden;
+}
+
+.mob-health-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #ffe45c, #ff8a2a 55%, #ff3b3b);
+  transition: width 250ms ease-out;
+}
+
+.mob-marker--reduced .mob-health-bar-fill { transition: none; }
+
+.mob-marker--hit .mob-marker-body { animation: mob-hit 600ms ease-out; }
+.mob-marker--attacking .mob-marker-body { animation: mob-lunge 600ms ease-out; }
+.mob-marker--attacking.mob-marker--north .mob-marker-body { --mob-lunge-x: 0; --mob-lunge-y: -9px; }
+.mob-marker--attacking.mob-marker--south .mob-marker-body { --mob-lunge-x: 0; --mob-lunge-y: 9px; }
+.mob-marker--attacking.mob-marker--west .mob-marker-body { --mob-lunge-x: -9px; --mob-lunge-y: 0; }
+.mob-marker--attacking.mob-marker--east .mob-marker-body { --mob-lunge-x: 9px; --mob-lunge-y: 0; }
+
+/* Ranged enemies: violet and round with one eye, so they read apart from the red melee mobs. */
+.mob-marker--ranged .mob-marker-body {
+  border-color: #e4c8ff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 35%, #a35cff, #3d1478 72%);
+  box-shadow: 0 0 0 2px #14052a, 0 0 12px #b26bff;
+  animation-name: mob-ranged-breathe;
+}
+.mob-marker--ranged .mob-marker-eye { width: calc(var(--mob-body-size) * 0.35); height: calc(var(--mob-body-size) * 0.35); border-radius: 50%; }
+/* Wind-up: a bright charging ring that grows until the shot leaves. */
+.mob-marker--winding .mob-marker-body {
+  border-color: #fff4c2;
+  animation: mob-windup 400ms ease-in-out infinite alternate;
+}
+.mob-marker--reduced.mob-marker--winding .mob-marker-body { outline: 3px dashed #ff6bf0; outline-offset: 2px; }
+
+.mob-projectile {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  width: 22px;
+  height: 12px;
+  background: linear-gradient(#f7f3ff 0 30%, #b6a4d8 45% 65%, #6c519a 100%);
+  clip-path: polygon(0 0, 30% 20%, 72% 20%, 100% 50%, 72% 80%, 30% 80%, 0 100%, 12% 50%);
+  filter: drop-shadow(0 0 3px #ffb44a);
+  pointer-events: none;
+}
+.mob-projectile::before {
+  content: '';
+  position: absolute;
+  inset: 3px 15px 3px 0;
+  background: linear-gradient(90deg, #ff5722, #ffe898);
+}
+.mob-projectile::after {
+  content: '';
+  position: absolute;
+  inset: 2px 0 2px 16px;
+  background: #ff526f;
+}
+
+@keyframes mob-ranged-breathe { to { box-shadow: 0 0 0 2px #14052a, 0 0 18px #c98bff; filter: brightness(1.12); } }
+@keyframes mob-windup { from { scale: 1; box-shadow: 0 0 0 2px #14052a, 0 0 8px #ff6bf0; } to { scale: 1.2; box-shadow: 0 0 0 4px #ff6bf0, 0 0 22px 6px #ff6bf0; } }
+
+@keyframes mob-breathe { to { box-shadow: 0 0 0 2px #2a0509, 0 0 18px #ff5a5a; filter: brightness(1.12); } }
+@keyframes mob-hit { 0% { filter: brightness(3); box-shadow: 0 0 0 8px rgb(255 255 255 / 80%); } 100% { filter: none; box-shadow: 0 0 0 2px #2a0509, 0 0 12px #ff3b3b; } }
+@keyframes mob-lunge { 0%, 100% { translate: 0 0; } 35% { translate: var(--mob-lunge-x, 0) var(--mob-lunge-y, 9px); } }
+
+.mob-defeat {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  color: #ffb3a7;
+  font-size: 30px;
+  line-height: 1;
+  text-shadow: 0 0 6px #ff3b3b, 0 0 16px #ff8a5a;
+  pointer-events: none;
+  animation: mob-defeat 600ms ease-out forwards;
+}
+
+@keyframes mob-defeat { 0% { opacity: 1; scale: .4; } 60% { opacity: 1; scale: 1.25; } 100% { opacity: 0; scale: 1.5; } }
+
+.mob-marker--reduced .mob-marker-body,
+.mob-defeat--reduced { animation: none; }
+.mob-marker--reduced.mob-marker--hit .mob-marker-body { outline: 3px solid #fff4c2; }
+.mob-marker--reduced.mob-marker--attacking .mob-marker-body { outline: 3px solid #ff5a5a; }
+
+@media (prefers-reduced-motion: reduce) {
+  .mob-marker-body,
+  .mob-defeat { animation: none; }
+  .mob-health-bar-fill { transition: none; }
+  .mob-marker--hit .mob-marker-body { outline: 3px solid #fff4c2; }
+  .mob-marker--attacking .mob-marker-body { outline: 3px solid #ff5a5a; }
+  .mob-marker--winding .mob-marker-body { outline: 3px dashed #ff6bf0; outline-offset: 2px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Virtual control pad (touch devices)
+   Shown only while `.map-viewport--touch` is set from the input-mode hook. The
+   pad hugs the bottom edge so the camera-centred player stays visible; the
+   control dock moves to the top, and the help caption and Player actions strip
+   sit just above the pad. Sizes are shared through custom properties so the
+   neighbouring regions can offset themselves by the pad's real height.
+   --------------------------------------------------------------------------- */
+.map-viewport--touch {
+  --virtual-cell: 56px;
+  --virtual-gap: 6px;
+  --virtual-pad-height: calc(3 * var(--virtual-cell) + 2 * var(--virtual-gap));
+  --virtual-pad-bottom: max(12px, env(safe-area-inset-bottom));
+}
+.virtual-controls {
+  position: absolute;
+  left: max(8px, env(safe-area-inset-left));
+  right: max(8px, env(safe-area-inset-right));
+  bottom: var(--virtual-pad-bottom);
+  z-index: 6;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  touch-action: none;
+}
+.virtual-controls > * { pointer-events: auto; touch-action: none; }
+
+.virtual-dpad,
+.virtual-actions {
+  display: grid;
+  grid-template-columns: repeat(3, var(--virtual-cell));
+  grid-template-rows: repeat(3, var(--virtual-cell));
+  gap: var(--virtual-gap);
+}
+.virtual-dpad {
+  grid-template-areas:
+    '. north .'
+    'west . east'
+    '. south .';
+}
+.virtual-dpad-north { grid-area: north; }
+.virtual-dpad-south { grid-area: south; }
+.virtual-dpad-west { grid-area: west; }
+.virtual-dpad-east { grid-area: east; }
+.virtual-actions {
+  grid-template-areas:
+    '. . .'
+    '. fire .'
+    '. . .';
+}
+
+.virtual-action-fire { grid-area: fire; }
+
+.virtual-controls button {
+  display: grid;
+  place-content: center;
+  gap: 2px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 0;
+  color: #f4f7ef;
+  border: 1px solid rgb(244 247 239 / 32%);
+  border-radius: 14px;
+  background: rgb(6 18 14 / 78%);
+  font: 700 18px/1 'DM Mono', monospace;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: none;
+  transition: transform 80ms ease, background-color 80ms ease;
+}
+.virtual-controls button small { font-size: 10px; font-weight: 600; opacity: .8; }
+.virtual-controls button:active { transform: scale(.94); background: rgb(24 52 40 / 92%); }
+.virtual-controls button:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+.virtual-dpad button { border-radius: 50%; }
+.virtual-action-fire {
+  color: #10160c;
+  border-color: rgb(255 214 92 / 70%);
+  background: rgb(255 196 61 / 92%);
+  border-radius: 50%;
+  font-size: 14px;
+  letter-spacing: .04em;
+}
+.virtual-action-fire:active { background: rgb(255 226 128 / 96%); }
+.virtual-action-fire--recharging { opacity: 0.55; }
+
+/* Clean view keeps gameplay controls available, dimmed like the control dock. */
+.map-viewport--clean .virtual-controls { opacity: .82; }
+.map-viewport--clean .virtual-controls:active, .map-viewport--clean .virtual-controls:focus-within { opacity: 1; }
+
+/* Touch-mode HUD: dock at the top, caption, and Player actions (Change avatar)
+   just above the pad, which owns movement and FIRE. */
+.map-viewport--touch .control-dock {
+  top: max(64px, calc(env(safe-area-inset-top) + 52px));
+  bottom: auto;
+  left: 0;
+  right: 0;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  margin: 0 auto;
+  transform: none;
+  justify-content: center;
+}
+
+.map-viewport--touch .navigation-help {
+  top: auto;
+  bottom: calc(var(--virtual-pad-bottom) + var(--virtual-pad-height) + 12px);
+}
+
+.map-viewport--touch .game-action-controls {
+  right: max(8px, env(safe-area-inset-right));
+  bottom: calc(var(--virtual-pad-bottom) + var(--virtual-pad-height) + 34px);
+}
+
+@media (max-width: 400px) {
+  .map-viewport--touch { --virtual-cell: 52px; --virtual-gap: 4px; }
+}
+
+/* Landscape phones: smaller cells, and the Player actions strip fits between
+   the two clusters at the bottom instead of stacking above them. */
+@media (max-height: 520px) {
+  .map-viewport--touch { --virtual-cell: 48px; --virtual-gap: 6px; }
+  .map-viewport--touch .game-action-controls {
+    right: auto;
+    left: 50%;
+    bottom: var(--virtual-pad-bottom);
+    transform: translateX(-50%);
+    justify-items: center;
+  }
+  /* Landscape phones have no free band for the caption; the pad is self-explanatory there. */
+  .map-viewport--touch .navigation-help { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .virtual-controls button { transition: none; }
+  .virtual-controls button:active { transform: none; }
+}
+
+/* ---------------------------------------------------------------------------
+   How to play (Issue #77): a labelled, accent-styled button in the first slot
+   of the control dock, and a single-screen objective + controls panel. The
+   button is never icon-only, stays in clean view, and takes a dock slot rather
+   than floating over the map. The panel's header and footer never scroll, so
+   close and Got it are always reachable; only the body scrolls on short screens.
+   --------------------------------------------------------------------------- */
+.how-to-play-button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid rgb(217 255 154 / 60%);
+  border-radius: 12px;
+  color: #d9ff9a;
+  background: rgb(26 48 26 / 94%);
+  box-shadow: 0 15px 40px rgb(0 0 0 / 35%);
+  backdrop-filter: blur(18px);
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+.how-to-play-button > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  color: #071410;
+  background: #d9ff9a;
+  font-size: 13px;
+  line-height: 1;
+}
+.how-to-play-button:hover { background: rgb(40 70 34 / 96%); }
+.how-to-play-button:focus-visible { outline: 2px solid #d9ff9a; outline-offset: 2px; }
+.how-to-play-button--highlight { animation: how-to-play-glow 1.2s ease-in-out infinite; }
+
+@keyframes how-to-play-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(217 255 154 / 0%), 0 15px 40px rgb(0 0 0 / 35%); }
+  50% { box-shadow: 0 0 0 5px rgb(217 255 154 / 45%), 0 0 26px rgb(217 255 154 / 60%); }
+}
+
+.how-to-play-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  background: rgb(3 8 6 / 70%);
+  backdrop-filter: blur(6px);
+  touch-action: none;
+}
+
+.how-to-play-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(560px, 100%);
+  height: min(640px, 100%);
+  overflow: hidden;
+  border: 1px solid rgb(217 255 154 / 24%);
+  border-radius: 18px;
+  background: rgb(7 20 16 / 98%);
+  box-shadow: 0 28px 80px rgb(0 0 0 / 55%);
+  touch-action: auto;
+}
+
+.how-to-play-header,
+.how-to-play-footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px clamp(16px, 4vw, 24px);
+}
+.how-to-play-header { justify-content: space-between; border-bottom: 1px solid rgb(255 255 255 / 7%); }
+.how-to-play-header h2 { margin: 2px 0 0; font-size: clamp(22px, 5vw, 30px); }
+.how-to-play-close {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(210 245 180 / 26%);
+  border-radius: 10px;
+  color: #dce7dd;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+.how-to-play-close:hover { color: #d9ff9a; background: rgb(217 255 154 / 9%); }
+.how-to-play-close:focus-visible { outline: 2px solid #d9ff9a; outline-offset: 2px; }
+
+.how-to-play-body {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px clamp(16px, 4vw, 24px) 0;
+}
+.how-to-play-objective { flex: none; }
+.how-to-play-objective p + p { margin-top: 8px; }
+.how-to-play-controls-section { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
+/* The panel keeps a fixed size; only the controls list scrolls. */
+.how-to-play-controls-scroll {
+  flex: 1 1 auto;
+  min-height: 96px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  margin-inline: -4px;
+  padding: 0 4px 10px;
+  border-radius: 8px;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent);
+}
+.how-to-play-controls-scroll:focus-visible { outline: 2px solid rgb(217 255 154 / 55%); outline-offset: 2px; }
+.how-to-play-body h3 { margin: 14px 0 6px; color: #d9ff9a; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.how-to-play-body h4 { margin: 12px 0 4px; color: #b9c8bc; font-size: 12px; font-weight: 700; }
+.how-to-play-body p { margin: 0; color: #dce7dd; font-size: 14px; line-height: 1.5; }
+.how-to-play-body .how-to-play-note { margin-top: 8px; color: #b9c8bc; font-size: 12px; }
+
+.how-to-play-controls { display: grid; gap: 4px; margin: 0; }
+.how-to-play-control {
+  display: grid;
+  grid-template-columns: minmax(96px, auto) 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 5px 0;
+  border-top: 1px solid rgb(255 255 255 / 6%);
+}
+.how-to-play-control:first-child { border-top: 0; }
+.how-to-play-control dt { white-space: nowrap; color: #91a296; font-size: 11px; }
+.how-to-play-control dd { margin: 0; color: #eaf5e8; font-size: 13px; }
+.how-to-play-control kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid rgb(217 255 154 / 32%);
+  border-radius: 6px;
+  color: #f2f8e9;
+  background: rgb(217 255 154 / 8%);
+  font: 700 11px/1.4 'DM Mono', monospace;
+  text-align: center;
+}
+
+.how-to-play-footer { justify-content: space-between; border-top: 1px solid rgb(255 255 255 / 7%); }
+.how-to-play-footer p { margin: 0; color: #91a296; font-size: 12px; line-height: 1.4; }
+.how-to-play-footer .primary-button { flex: none; min-width: 120px; }
+
+@media (max-width: 480px) {
+  .how-to-play-backdrop { padding-inline: max(8px, env(safe-area-inset-left)) max(8px, env(safe-area-inset-right)); }
+  .how-to-play-header, .how-to-play-footer { padding-block: 12px; }
+  .how-to-play-footer { flex-direction: column; align-items: stretch; gap: 8px; }
+  .how-to-play-footer p { text-align: center; }
+}
+
+/* Landscape phones: less vertical chrome so the body keeps room to scroll. */
+@media (max-height: 520px) {
+  .how-to-play-header, .how-to-play-footer { padding-block: 8px; }
+  .how-to-play-header .eyebrow { display: none; }
+  .how-to-play-footer p { display: none; }
+  .how-to-play-footer { justify-content: flex-end; }
+  .how-to-play-body h3 { margin-block: 8px 4px; }
+  .how-to-play-body p { font-size: 12px; line-height: 1.4; }
+  .how-to-play-controls-scroll { min-height: 72px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .how-to-play-button { transition: none; }
+  /* A static highlight replaces the glow. */
+  .how-to-play-button--highlight {
+    animation: none;
+    box-shadow: 0 0 0 3px #d9ff9a, 0 0 18px rgb(217 255 154 / 45%);
+  }
+}

@@ -1,0 +1,111 @@
+# Install at the TEAM REPOSITORY ROOT: .github/workflows/conquest-railway.yml
+name: Deploy Conquest to Railway
+run-name: Conquest deploy ${{ inputs.provisioning_id || github.sha }}
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      provisioning_id:
+        description: Organizer setup run identifier (leave empty for a normal deployment)
+        required: false
+        type: string
+      expected_revision:
+        description: Organizer commit to deploy (leave empty for a normal deployment)
+        required: false
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: conquest-railway-production
+  cancel-in-progress: false
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: party_conquest_ci
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd "pg_isready -U postgres -d party_conquest_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    defaults:
+      run:
+        working-directory: conquest
+    steps:
+      - name: Check requested revision
+        working-directory: ${{ github.workspace }}
+        env:
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
+        run: |
+          if [ -n "$EXPECTED_REVISION" ] && [ "$EXPECTED_REVISION" != "$GITHUB_SHA" ]; then
+            echo 'main changed before workflow dispatch; refusing to deploy a different commit'
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: conquest/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate frontend
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Validate backend and deploy orchestration
+        env:
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:${{ job.services.postgres.ports['5432'] }}/party_conquest_ci
+        run: |
+          python -m pip install -r backend/requirements-dev.txt
+          cd backend
+          DATABASE_URL="$TEST_DATABASE_URL" DB_SCHEMA=public python -m app.migrate
+          python -m pytest -q
+  deploy:
+    needs: validate
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.RAILWAY_PUBLIC_URL }}
+    defaults:
+      run:
+        working-directory: conquest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check team deployment settings
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PUBLIC_URL: ${{ vars.RAILWAY_PUBLIC_URL }}
+        run: |
+          test -n "$RAILWAY_TOKEN" || { echo 'Missing team RAILWAY_TOKEN secret'; exit 1; }
+          test -n "$RAILWAY_PUBLIC_URL" || { echo 'Missing RAILWAY_PUBLIC_URL variable'; exit 1; }
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli@5.64.2
+      - name: Publish and verify
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          RAILWAY_PUBLIC_URL: ${{ vars.RAILWAY_PUBLIC_URL }}
+        run: python scripts/railway_deploy.py
