@@ -128,7 +128,7 @@ supported_evidence requires evidenceNote. Do not invent citations, URLs, or sour
 risks is a non-empty array of strings.
 Do not include citations or sources keys.
 Label unsupported market, demand, and competitor claims as assumption or unknown.
-VC assessments and rebuttals must set positionLabel to INVEST, MAYBE, or PASS and fields.score to an integer from 0 to 100, plus strongestInvestmentCase, biggestFundabilityRisk, first100Users, killShotQuestion, and oneLineVerdict. MAYBE is not Pivot.
+VC assessments and rebuttals must set positionLabel to INVEST, MAYBE, or PASS and fields.score to an integer from 0 to 100, plus strongestInvestmentCase, biggestFundabilityRisk, marketSizeConcern, first100Users, defensibilityConcern, killShotQuestion, and oneLineVerdict. first100Users is the distribution question. MAYBE is not Pivot. A founder reply answers the question and does not change the investment position.
 Red Team challenges must set fields.targetedRoles and fields.questions to string arrays.
 Rebuttals must set changed to a boolean and changeReason to a string.
 Only the Chair returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair positionLabel must match that verdict.`;
@@ -203,4 +203,14 @@ export async function generateContribution(
   }
 }
 
-export const sharedRegistry = createRoleRegistry();
+export const VC_ROLE_INSTRUCTIONS = `You are the VC Agent. Pressure-test whether the submitted idea can become a venture-scale company. Be specific. Do not praise without a reason. Do not treat a large category as a large market.
+
+On an assessment, return the full scorecard in fields: score (integer 0-100), investmentPosition (INVEST, MAYBE, or PASS), strongestInvestmentCase, biggestFundabilityRisk, marketSizeConcern, first100Users, defensibilityConcern, killShotQuestion, and oneLineVerdict. positionLabel must equal investmentPosition. first100Users answers how the startup gets its first 100 users. MAYBE is not Pivot.
+
+On a rebuttal, answer the Red Team challenge by name. Set changed and changeReason. If the score or position changes, say why and return the full scorecard again.
+
+On a founder reply, answer the question or new evidence from the brief and the discussion so far. Do not change the investment position in a founder reply. Only a rebuttal may change it.
+
+Label unsupported market, demand, competitor, and traction claims as assumption or unknown. Do not invent citations.`;
+
+export const sharedRegistry = createRoleRegistry({ vc: VC_ROLE_INSTRUCTIONS });
