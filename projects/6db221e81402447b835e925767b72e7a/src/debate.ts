@@ -1,6 +1,8 @@
 import type { IdeaBrief } from "./brief";
 import {
   SPECIALIST_ROLES,
+  SPECIALIST_SCORE_SPECS,
+  getPrimaryScore,
   isSpecialist,
   parseContribution,
   type ContributionStage,
@@ -64,8 +66,6 @@ export interface DebateContext {
 export type DebateResult =
   | { ok: true; value: DebateRun }
   | { ok: false; error: DebateFailure; value: DebateRun };
-
-const REQUIRED_PHASES: Phase[] = ["assessments", "challenge", "rebuttals"];
 
 function failure(
   run: DebateRun,
@@ -222,6 +222,9 @@ export function completeTurn(run: DebateRun, raw: string): DebateResult {
     });
   }
   const { role, stage } = run.lock;
+  if (stage === "verdict_chat") {
+    return failure(run, { code: "wrong_phase", message: "Chair chat is separate from the debate record.", role });
+  }
   if (hasContribution(run, role, stage) && stage !== "founder_response") {
     return failure(run, {
       code: "duplicate",
@@ -239,6 +242,34 @@ export function completeTurn(run: DebateRun, raw: string): DebateResult {
       role,
     };
     return { ok: false, error, value: failTurn(run, error) };
+  }
+  if (stage === "rebuttal" && (role === "customer" || role === "engineer")) {
+    const opening = run.messages.find((item) => item.speaker === role && item.stage === "assessment");
+    const initial = opening?.envelope ? getPrimaryScore(opening.envelope) : null;
+    const revised = getPrimaryScore(parsed.value);
+    const positionDiffers = opening?.envelope && opening.envelope.positionLabel !== parsed.value.positionLabel;
+    const scoreDiffers = initial !== null && revised !== null && initial !== revised;
+    if ((parsed.value.changed === false && (positionDiffers || scoreDiffers)) ||
+        (initial !== null && revised !== null && parsed.value.changed !== !!(positionDiffers || scoreDiffers))) {
+      const error: DebateFailure = {
+        code: "invalid_response",
+        message: "The revised score and position must agree with the changed flag.",
+        phase: run.phase,
+        role,
+      };
+      return { ok: false, error, value: failTurn(run, error) };
+    }
+  }
+  if (stage === "founder_response" && isSpecialist(role)) {
+    const latest = [...run.messages].reverse().find((item) => item.speaker === role && item.envelope);
+    const field = SPECIALIST_SCORE_SPECS[role].field;
+    const scored = [...run.messages].reverse().find((item) => item.speaker === role &&
+      item.envelope && getPrimaryScore(item.envelope) !== null);
+    if ((latest?.envelope && latest.envelope.positionLabel !== parsed.value.positionLabel) ||
+        (field in parsed.value.fields && parsed.value.fields[field] !== scored?.envelope?.fields[field])) {
+      const error: DebateFailure = { code: "invalid_response", message: "A founder response cannot revise the specialist's score or position.", phase: run.phase, role };
+      return { ok: false, error, value: failTurn(run, error) };
+    }
   }
   if (stage === "challenge") {
     const targeted = parsed.value.fields.targetedRoles;
@@ -327,7 +358,7 @@ export function addFounderInput(run: DebateRun, text: string): DebateResult {
       phase: run.phase,
     });
   }
-  if (run.failure && REQUIRED_PHASES.includes(run.phase)) {
+  if (run.failure) {
     return failure(run, {
       code: "incomplete",
       message: "Resolve the failed step before continuing.",
@@ -369,10 +400,10 @@ export function requestVerdict(run: DebateRun): DebateResult {
       phase: run.phase,
     });
   }
-  if (run.failure && run.failure.phase && REQUIRED_PHASES.includes(run.failure.phase)) {
+  if (run.failure) {
     return failure(run, {
       code: "incomplete",
-      message: "A failed required stage cannot produce a verdict.",
+      message: "Retry the failed contribution before requesting a verdict.",
       phase: run.phase,
     });
   }
@@ -403,12 +434,28 @@ export function renderContext(context: DebateContext): string {
   lines.push("", "DISCUSSION SO FAR");
   if (context.messages.length === 0) lines.push("(none)");
   for (const message of context.messages) {
-    lines.push(`[${message.stage}] ${message.speaker}: ${message.body}`);
+    lines.push(`[${message.stage}] ${message.speaker} (source ${message.id}): ${message.body}`);
     if (message.envelope?.positionLabel) {
       lines.push(`Position: ${message.envelope.positionLabel}`);
     }
+    if (message.envelope && isSpecialist(message.envelope.role)) {
+      const score = getPrimaryScore(message.envelope);
+      if (score !== null) {
+        const { field, max } = SPECIALIST_SCORE_SPECS[message.envelope.role];
+        lines.push(`Primary score (${field}): ${score}/${max}`);
+      }
+      if (message.envelope.stage === "assessment") {
+        lines.push(`Assessment reasoning: ${message.envelope.rationale}`);
+        message.envelope.risks.forEach((risk, index) => {
+          lines.push(`${index === 0 ? "Biggest risk" : "Risk"}: ${risk}`);
+        });
+      }
+    }
     for (const claim of message.envelope?.assumptions ?? []) {
-      lines.push(`Claim (${claim.grounding}): ${claim.statement}`);
+      lines.push(`Claim (${claim.grounding}): ${claim.statement}${claim.evidenceNote ? ` Evidence note: ${claim.evidenceNote}` : ""}`);
+    }
+    if (message.envelope) {
+      lines.push(`Recorded envelope: ${JSON.stringify(message.envelope)}`);
     }
   }
   return lines.join("\n");

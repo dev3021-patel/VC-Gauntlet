@@ -1,5 +1,6 @@
 import {
   createRoleRegistry,
+  isSpecialist,
   type ContractError,
   type ContributionStage,
   type RoleId,
@@ -130,9 +131,18 @@ Do not include citations or sources keys.
 Label unsupported market, demand, and competitor claims as assumption or unknown.
 VC assessments and rebuttals must set positionLabel to INVEST, MAYBE, or PASS and fields.score to an integer from 0 to 100, plus strongestInvestmentCase, biggestFundabilityRisk, marketSizeConcern, first100Users, defensibilityConcern, killShotQuestion, and oneLineVerdict. first100Users is the distribution question. MAYBE is not Pivot. A founder reply answers the question and does not change the investment position.
 Competitor assessments and rebuttals must set positionLabel and fields.stance to NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE, and fields.threatScore to an integer from 0 to 10, plus incumbent, crushPlan, weakMoat, copyabilityRisk, distributionDisadvantage, dangerousMove, founderQuestion, and verdict. That stance is not a Chair verdict.
+Customer assessments and rebuttals must include fields.adoptionScore, an integer from 0 to 10 measuring the likelihood the target customer adopts AND pays, alongside the existing positionLabel and supporting fields.
+Engineer assessments and rebuttals must include fields.feasibilityScore, an integer from 0 to 10 measuring buildability, alongside the existing positionLabel and supporting fields.
+For Customer and Engineer rebuttals, return the revised score and justify it in rationale and changeReason. When changed is false, retain the opening score. These scores are not Chair verdicts.
 Red Team challenges must set fields.targetedRoles and fields.questions to string arrays.
 Rebuttals must set changed to a boolean and changeReason to a string.
-Only the Chair returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair positionLabel must match that verdict.`;
+Only the Chair in stage verdict returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair verdict positionLabel must match that verdict. In verdict_chat, return positionLabel discussion and no decision.`;
+
+const ASSESSMENT_REPORT_INSTRUCTIONS = `Keep the assessment report inside the existing role envelope. Do not add a report key, fields.report, or a separate top-level output structure.
+Use rationale as a string containing 2-4 short points, separated by newlines and prefixed with "- ". Explain why the score and position follow from the brief; keep each point to one concrete sentence, like the concise scorecard fields.
+Put the single biggest risk first in the existing risks array; keep any remaining risks concise. For the VC, that first risk must agree with fields.biggestFundabilityRisk.
+Use the existing assumptions array for labeled claims, with the existing grounding values and evidenceNote rule. Distinguish founder-provided statements from verified evidence, assumptions, and unknowns; never invent facts to fill the card.
+Keep summary and all existing role-specific fields. No per-agent report format.`;
 
 export function buildGenerationPrompt(
   run: DebateRun,
@@ -151,10 +161,12 @@ export function buildGenerationPrompt(
       },
     };
   }
-  const context = renderContext(contextSnapshot(run));
+  const snapshot = contextSnapshot(run);
+  if (isSpecialist(role) && stage === "assessment") snapshot.messages = [];
+  const context = renderContext(snapshot);
   return {
     ok: true,
-    system: `${instructions}\n\n${ENVELOPE_INSTRUCTIONS}`,
+    system: `${instructions}\n\n${ENVELOPE_INSTRUCTIONS}${isSpecialist(role) && stage === "assessment" ? `\n\n${ASSESSMENT_REPORT_INSTRUCTIONS}` : ""}`,
     user: `Role: ${role}\nStage: ${stage}\n\n${context}${appendix.trim() ? `\n\n${appendix.trim()}` : ""}\n\nRespond only to this brief and the discussion so far.`,
   };
 }

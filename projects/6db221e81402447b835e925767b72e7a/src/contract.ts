@@ -20,12 +20,20 @@ export const SPECIALIST_ROLES = [
 
 export type SpecialistRole = (typeof SPECIALIST_ROLES)[number];
 
+export const SPECIALIST_SCORE_SPECS = {
+  vc: { field: "score", max: 100 },
+  competitor: { field: "threatScore", max: 10 },
+  customer: { field: "adoptionScore", max: 10 },
+  engineer: { field: "feasibilityScore", max: 10 },
+} as const;
+
 export const CONTRIBUTION_STAGES = [
   "assessment",
   "challenge",
   "rebuttal",
   "founder_response",
   "verdict",
+  "verdict_chat",
 ] as const;
 
 export type ContributionStage = (typeof CONTRIBUTION_STAGES)[number];
@@ -190,6 +198,19 @@ export function createRoleRegistry(
 
 export function isSpecialist(role: RoleId): role is SpecialistRole {
   return (SPECIALIST_ROLES as readonly string[]).includes(role);
+}
+
+/** Missing scores stay missing so UI adapters can display position changes. */
+export function getPrimaryScore(
+  envelope: Pick<RoleEnvelope, "role" | "stage" | "fields">,
+): number | null {
+  if (!isSpecialist(envelope.role) ||
+      (envelope.stage !== "assessment" && envelope.stage !== "rebuttal")) return null;
+  const { field, max } = SPECIALIST_SCORE_SPECS[envelope.role];
+  const score = envelope.fields[field];
+  return typeof score === "number" && Number.isInteger(score) && score >= 0 && score <= max
+    ? score
+    : null;
 }
 
 export function isChairVerdict(value: string): value is ChairVerdict {
@@ -436,6 +457,13 @@ export function parseContribution(
   if (!summary || !rationale || !positionLabel || !assumptions || !risks || !fields) {
     return invalid("The response is missing required envelope fields.");
   }
+  if ((role === "customer" || role === "engineer") &&
+      (stage === "assessment" || stage === "rebuttal")) {
+    const { field } = SPECIALIST_SCORE_SPECS[role];
+    if (field in fields && getPrimaryScore({ role, stage, fields }) === null) {
+      return invalid(`${field} must be an integer from 0 to 10 when supplied.`);
+    }
+  }
   if (isChairVerdict(positionLabel) && role !== "chair") {
     return invalid("Only the Chair may use an Invest, Pivot, or Pass verdict label.");
   }
@@ -459,7 +487,11 @@ export function parseContribution(
   let decision: ChairDecision | null = null;
   let vc: VcScorecard | null = null;
   let competitor: CompetitorScorecard | null = null;
-  if (role === "chair") {
+  if (stage === "verdict_chat") {
+    if (role !== "chair" || positionLabel !== "discussion" || record.decision != null) {
+      return invalid("Verdict chat is a Chair discussion and cannot return a new decision.");
+    }
+  } else if (role === "chair") {
     if (stage !== "verdict") return invalid("The Chair only speaks at the verdict.");
     const decisionRecord = asRecord(record.decision);
     if (!decisionRecord) return invalid("The Chair response is missing a decision.");

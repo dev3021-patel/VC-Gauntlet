@@ -1,0 +1,12 @@
+.assessment-report {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d9cfc2;
+  overflow-wrap: anywhere;
+}
+.assessment-report h3 { margin: 1rem 0 .5rem; font-size: 1rem; }
+.assessment-report ul { padding-left: 1.25rem; margin: .5rem 0 1rem; }
+.assessment-report ul > li { background: none; border: 0; border-radius: 0; padding: 0; margin: .5rem 0; }
+.assessment-report p > strong, .assessment-report li > strong { text-transform: none; margin-right: 0; }
+.assessment-report-position { font-weight: 700; }
+.assessment-report-evidence { color: #5c5148; font-size: .9rem; margin: .25rem 0 0; }

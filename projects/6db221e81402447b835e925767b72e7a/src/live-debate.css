@@ -1,0 +1,40 @@
+.app-modes { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px max(16px, calc((100vw - 1240px) / 2)); border-bottom: 1px solid #303547; }
+.app-modes a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border: 1px solid #41495d; border-radius: 5px; color: #c8d0e2; text-decoration: none; font-size: 13px; }
+.app-modes a[aria-current] { color: #f1c46c; border-color: #f1c46c; background: #f1c46c12; }
+.live-debate { --card: #121927; --line: #34405a; --muted: #aeb8cc; width: min(980px, calc(100% - 32px)); margin: 0 auto; padding: 36px 0 64px; color: #e8edf7; line-height: 1.5; }
+.live-debate h1 { font: 800 clamp(36px, 6vw, 62px)/1.08 Georgia, serif; letter-spacing: -.025em; margin: 4px 0 16px; }
+.live-debate h2 { font-size: 21px; margin: 0 0 12px; }
+.live-debate .eyebrow { color: #f1c46c; font: 12px monospace; text-transform: uppercase; letter-spacing: .08em; }
+.live-debate .lede { color: var(--muted); max-width: 68ch; }
+.live-debate .status, .live-debate .brief, .live-debate .verdict-chat { padding: 20px; margin: 24px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+.live-debate .status p { margin-bottom: 0; color: var(--muted); overflow-wrap: anywhere; }
+.live-debate form label, .live-debate .founder label { display: grid; gap: 6px; margin: 16px 0; color: #d5ddef; }
+.live-debate input, .live-debate textarea { width: 100%; padding: 12px; border: 1px solid #485675; border-radius: 5px; background: #0e1420; color: #f4f6fc; }
+.live-debate textarea { min-height: 96px; resize: vertical; }
+.live-debate input[aria-invalid="true"], .live-debate textarea[aria-invalid="true"] { border-color: #ff9292; }
+.live-debate .field-error { color: #ffb4b4; font-size: 13px; }
+.live-debate button { min-height: 44px; padding: 10px 18px; border: 1px solid transparent; border-radius: 5px; background: #f1c46c; color: #16120b; font-weight: 700; }
+.live-debate button.secondary { background: transparent; border-color: #52617e; color: #dce2ef; }
+.live-debate button:disabled { opacity: .55; cursor: default; }
+.live-debate :focus-visible, .app-modes a:focus-visible { outline: 3px solid #a986ee; outline-offset: 3px; }
+.live-debate .debate-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.live-debate .transcript { list-style: none; padding: 0; display: grid; gap: 18px; }
+.live-debate .transcript > li { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 20px; min-width: 0; overflow-wrap: anywhere; }
+.live-debate .message-stage, .live-debate .transcript small { display: block; color: var(--muted); font-size: 13px; }
+.live-debate .message-body, .live-debate .chair-output { white-space: pre-wrap; overflow-wrap: anywhere; }
+.live-debate .trail, .live-debate .decision { background: #1c2639; padding: 12px; border-radius: 5px; }
+.live-debate .failure { color: #ffb4b4; border-left: 4px solid #ff9292; padding: 12px; background: #431f2b; }
+.live-debate .founder { padding: 20px; border: 1px solid var(--line); border-radius: 8px; }
+.live-debate .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.live-debate .scorecard-details dl { margin: 12px 0; }
+.live-debate .scorecard-details dt { font-weight: 700; }
+.live-debate .scorecard-details dd { margin: 0 0 12px; color: var(--muted); }
+.live-debate .verdict-chat h2 { margin-top: 0; }
+.live-debate .verdict-chat > p { color: var(--muted); }
+.live-debate .assessment-report { border-color: var(--line); }
+.live-debate .assessment-report-evidence { color: var(--muted); }
+@media(max-width: 600px) { .live-debate { width: calc(100% - 24px); padding-top: 24px; } .live-debate .debate-head { align-items: flex-start; } .live-debate .transcript > li { padding: 16px; } }
+
+.live-debate .brief-field { margin: 16px 0; }
+.live-debate .brief-field label { margin: 0 0 6px; }
+.live-debate .field-error { margin: 6px 0 0; }
