@@ -8,6 +8,8 @@ import { ROLE_INSTRUCTIONS } from "./roles";
 const runs = new Map<string, DebateRun>();
 const registry = createRoleRegistry(ROLE_INSTRUCTIONS);
 
+export function storeRun(run: DebateRun) { runs.set(run.id, run); }
+
 function send(res: ServerResponse, status: number, body: unknown) {
   res.statusCode = status;
   res.setHeader("content-type", "application/json");
@@ -55,21 +57,23 @@ export async function handleDebateApi(req: IncomingMessage, res: ServerResponse)
       const completed = completeTurn(started.value, generated.raw); runs.set(run.id, completed.value);
       return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;
     }
+    let activeRun = run;
     if (req.url.startsWith("/api/debate/verdict")) {
-      const requested = requestVerdict(run); if (!requested.ok) return send(res, 409, { error: requested.error.message, run: requested.value }), true;
-      runs.set(run.id, requested.value);
+      const requested = requestVerdict(activeRun); if (!requested.ok) return send(res, 409, { error: requested.error.message, run: requested.value }), true;
+      activeRun = requested.value;
+      storeRun(activeRun);
     }
-    const retry = run.failure ? retryTurn(run) : { ok: true as const, value: run };
+    const retry = activeRun.failure ? retryTurn(activeRun) : { ok: true as const, value: activeRun };
     if (!retry.ok) return send(res, 409, { error: retry.error.message, run: retry.value }), true;
     const current = retry.value;
     const role = nextRole(current);
     if (!role) return send(res, 409, { error: "Ask a founder question or request the verdict.", run: current }), true;
     const started = beginTurn(current, role); if (!started.ok) return send(res, 409, { error: started.error.message, run: started.value }), true;
-    runs.set(run.id, started.value);
-    const config = readProviderConfig(); if (!config.ok) { const failed = failTurn(started.value, config.error); runs.set(run.id, failed); return send(res, 503, { error: config.error.message, run: failed }), true; }
+    storeRun(started.value);
+    const config = readProviderConfig(); if (!config.ok) { const failed = failTurn(started.value, config.error); storeRun(failed); return send(res, 503, { error: config.error.message, run: failed }), true; }
     const generated = await generateContribution(started.value, role, started.value.lock!.stage, registry, createOpenAiClient(config.value));
-    if (!generated.ok) { const failed = failTurn(started.value, generated.error); runs.set(run.id, failed); return send(res, 502, { error: generated.error.message, run: failed }), true; }
-    const completed = completeTurn(started.value, generated.raw); runs.set(run.id, completed.value);
+    if (!generated.ok) { const failed = failTurn(started.value, generated.error); storeRun(failed); return send(res, 502, { error: generated.error.message, run: failed }), true; }
+    const completed = completeTurn(started.value, generated.raw); storeRun(completed.value);
     return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;
   } catch { return send(res, 400, { error: "Invalid debate request" }), true; }
 }

@@ -1,6 +1,7 @@
 import { Readable } from "node:stream";
 import { afterEach, describe, expect, it } from "vitest";
-import { handleDebateApi } from "./server";
+import { handleDebateApi, storeRun } from "./server";
+import type { DebateRun } from "./debate";
 
 const savedKey = process.env.OPENAI_API_KEY;
 afterEach(() => { process.env.OPENAI_API_KEY = savedKey; });
@@ -22,5 +23,21 @@ describe("debate API recovery", () => {
     expect(failed.status).toBe(503);
     expect(failed.body.run?.failure?.code).toBe("missing_credentials");
     expect(failed.body.run?.lock).toBeNull();
+  });
+
+  it("uses the stored verdict-phase run for the first Chair generation", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const id = "ready-for-verdict";
+    const roles = ["vc", "customer", "competitor", "engineer"];
+    const messages = [
+      ...roles.map((speaker) => ({ id: `${speaker}-opening`, speaker, stage: "assessment", body: "opening", envelope: {} })),
+      { id: "red-team", speaker: "red_team", stage: "challenge", body: "challenge", envelope: {} },
+      ...roles.map((speaker) => ({ id: `${speaker}-rebuttal`, speaker, stage: "rebuttal", body: "rebuttal", envelope: {} })),
+    ];
+    storeRun({ id, brief: { idea: "Clinic intake", problem: "Phone tag", targetCustomer: "Clinic managers", solution: "Booking assistant", businessModel: "Monthly subscription", traction: "", founderEvidence: "" }, messages, phase: "founder", lock: null, failure: null, verdictRequested: false } as unknown as DebateRun);
+    const failed = await call("/api/debate/verdict", { runId: id });
+    expect(failed.status).toBe(503);
+    expect((failed.body.run as { phase?: string }).phase).toBe("verdict");
+    expect(failed.body.run?.failure?.code).toBe("missing_credentials");
   });
 });
