@@ -1,12 +1,14 @@
 import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
+import { handleDebateApi } from "./src/server";
 
 function providerStatusPlugin(): Plugin {
   return {
     name: "provider-status",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        if (req.url?.startsWith("/api/debate/")) { void handleDebateApi(req, res); return; }
         if (!req.url?.startsWith("/api/provider-status")) {
           next();
           return;
@@ -19,7 +21,7 @@ function providerStatusPlugin(): Plugin {
             configured,
             model,
             message: configured
-              ? "Provider configured. VC instructions are registered. Other roles are not, so a full debate is not generated."
+              ? "Provider configured. Role agents are not registered in this foundation session."
               : "AI provider is not configured. Set OPENAI_API_KEY on the server. Sample debates are not used.",
           }),
         );
