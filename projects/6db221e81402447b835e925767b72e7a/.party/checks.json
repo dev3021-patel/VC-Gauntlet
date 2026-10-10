@@ -1,0 +1,5 @@
+{
+  "commands": [
+    ["node", "--experimental-strip-types", "--test", "tests/vc-agent.test.ts"]
+  ]
+}

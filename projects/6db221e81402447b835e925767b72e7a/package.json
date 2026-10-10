@@ -1,0 +1,8 @@
+{
+  "name": "venture-gauntlet-vc-agent",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --test tests/vc-agent.test.ts"
+  }
+}
