@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { validateBrief } from "./brief";
 import { SPECIALIST_ROLES, createRoleRegistry, type RoleId } from "./contract";
-import { beginTurn, completeTurn, createRun, requestVerdict, type DebateRun } from "./debate";
+import { beginTurn, completeTurn, createRun, failTurn, requestVerdict, retryTurn, type DebateRun } from "./debate";
 import { generateContribution, readProviderConfig, createOpenAiClient } from "./provider";
 import { ROLE_INSTRUCTIONS } from "./roles";
 
@@ -48,9 +48,10 @@ export async function handleDebateApi(req: IncomingMessage, res: ServerResponse)
       const started = beginTurn(run, "customer");
       const config = readProviderConfig();
       if (!started.ok) { runs.set(run.id, run); return send(res, 503, { error: started.error.message, run }), true; }
-      if (!config.ok) { runs.set(run.id, run); return send(res, 503, { error: config.error.message, run }), true; }
+      runs.set(run.id, started.value);
+      if (!config.ok) { const failed = failTurn(started.value, config.error); runs.set(run.id, failed); return send(res, 503, { error: config.error.message, run: failed }), true; }
       const generated = await generateContribution(started.value, "customer", "founder_response", registry, createOpenAiClient(config.value));
-      if (!generated.ok) { runs.set(run.id, run); return send(res, 502, { error: generated.error.message, run }), true; }
+      if (!generated.ok) { const failed = failTurn(started.value, generated.error); runs.set(run.id, failed); return send(res, 502, { error: generated.error.message, run: failed }), true; }
       const completed = completeTurn(started.value, generated.raw); runs.set(run.id, completed.value);
       return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;
     }
@@ -58,13 +59,16 @@ export async function handleDebateApi(req: IncomingMessage, res: ServerResponse)
       const requested = requestVerdict(run); if (!requested.ok) return send(res, 409, { error: requested.error.message, run: requested.value }), true;
       runs.set(run.id, requested.value);
     }
-    const current = runs.get(run.id)!;
+    const retry = run.failure ? retryTurn(run) : { ok: true as const, value: run };
+    if (!retry.ok) return send(res, 409, { error: retry.error.message, run: retry.value }), true;
+    const current = retry.value;
     const role = nextRole(current);
     if (!role) return send(res, 409, { error: "Ask a founder question or request the verdict.", run: current }), true;
     const started = beginTurn(current, role); if (!started.ok) return send(res, 409, { error: started.error.message, run: started.value }), true;
-    const config = readProviderConfig(); if (!config.ok) return send(res, 503, { error: config.error.message, run: current }), true;
+    runs.set(run.id, started.value);
+    const config = readProviderConfig(); if (!config.ok) { const failed = failTurn(started.value, config.error); runs.set(run.id, failed); return send(res, 503, { error: config.error.message, run: failed }), true; }
     const generated = await generateContribution(started.value, role, started.value.lock!.stage, registry, createOpenAiClient(config.value));
-    if (!generated.ok) return send(res, 502, { error: generated.error.message, run: current }), true;
+    if (!generated.ok) { const failed = failTurn(started.value, generated.error); runs.set(run.id, failed); return send(res, 502, { error: generated.error.message, run: failed }), true; }
     const completed = completeTurn(started.value, generated.raw); runs.set(run.id, completed.value);
     return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;
   } catch { return send(res, 400, { error: "Invalid debate request" }), true; }

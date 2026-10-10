@@ -79,6 +79,8 @@ body {
 .transcript strong { text-transform: capitalize; margin-right: .6rem; }
 .transcript span, .transcript small { color: #596176; display: block; }
 .founder { display: grid; gap: .75rem; }
+.trail, .decision { background: #f3f5fb; border-radius: .4rem; padding: .5rem; }
+.failure { border-left: 4px solid #b42318; padding-left: .75rem; color: #8f1d14; }
 
 form label, .contract li {
   display: flex;

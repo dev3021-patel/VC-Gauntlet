@@ -2,6 +2,7 @@ import react from "@vitejs/plugin-react";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
 import { handleDebateApi } from "./src/server";
+import { providerStatus } from "./src/provider";
 
 function providerStatusPlugin(): Plugin {
   return {
@@ -13,16 +14,13 @@ function providerStatusPlugin(): Plugin {
           next();
           return;
         }
-        const configured = Boolean(process.env.OPENAI_API_KEY?.trim());
-        const model = process.env.GAUNTLET_MODEL?.trim() || "gpt-4o-mini";
+        const status = providerStatus();
         res.setHeader("content-type", "application/json");
         res.end(
           JSON.stringify({
-            configured,
-            model,
-            message: configured
-              ? "Provider configured. Role agents are not registered in this foundation session."
-              : "AI provider is not configured. Set OPENAI_API_KEY on the server. Sample debates are not used.",
+            configured: status.configured,
+            model: status.model,
+            message: status.message,
           }),
         );
       });
