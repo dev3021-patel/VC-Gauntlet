@@ -11,7 +11,7 @@ npm run dev -- --port <allocated-port> --strictPort
 
 The dev server binds `127.0.0.1`. Set `VITE_HMR_CLIENT_PORT=443` when Party Preview proxies Vite. No database is required. `/api/provider-status` reports server configuration without exposing the key.
 
-The approved five-screen mock demo is the default entry (`/?mode=demo`). `/?mode=live` opens the real API workflow with independent openings, debate recovery, assessment reports, and post-verdict Chair chat. The experience navigation identifies sample versus live data. The demo never calls the debate API.
+The five-screen committee UI is the default entry (`/`). It runs a live `/api/debate/*` debate by default and only shows sample data after the user presses **Use demo data**; a live failure never falls back to demo data. `/?mode=console` (alias `/?mode=live`) opens the single-page live transcript console with independent openings, debate recovery, assessment reports, and post-verdict Chair chat. The experience navigation identifies both entries.
 
 For the built application, the same API handler runs in a project-local Node server:
 
