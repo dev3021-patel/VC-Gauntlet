@@ -145,15 +145,16 @@ export function App() {
             ))}
           </ol>
           <p className="meta">
-            VC scores use Invest, Maybe, or Pass. Only the Chair returns Invest, Pivot, or Pass.
-            Maybe is never rewritten as Pivot.
+            VC scores use Invest, Maybe, or Pass, plus market size, distribution, and
+            defensibility. Only the Chair returns Invest, Pivot, or Pass. Maybe is never
+            rewritten as Pivot.
           </p>
           {run ? (
             <div className="receipt">
               <h3>Brief accepted</h3>
               <p>
-                Run {run.id.slice(0, 8)} is in the {run.phase} stage. No role instructions are
-                registered, so no debate has been generated.
+                Run {run.id.slice(0, 8)} is in the {run.phase} stage. VC instructions are
+                registered. Other roles are not, so no debate has been generated.
               </p>
               <dl>
                 <div>
