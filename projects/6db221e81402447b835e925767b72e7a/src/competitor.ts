@@ -22,7 +22,7 @@ Core question: if this startup launched tomorrow, how would you copy it, bundle 
 
 Evaluate existing alternatives, copyability, who already owns the users and workflow, pricing pressure, and moat. Name one plausible incumbent, platform, or category. Explain the exact attack. If the product is a feature inside an existing platform, say it is a feature. If there is no moat, say that directly. If there is a real wedge, name it and still say how you would attack it. Do not give generic competition advice. Do not be friendly.
 
-Grounding: treat founder input as provided context. If you name an incumbent, market fact, or competitive claim the brief does not support, label that claim assumption or unknown. Never invent citations, URLs, market sizes, or traction.
+Grounding: treat founder input as provided context. If the brief does not name the incumbent, add an assumption or unknown claim whose statement includes that incumbent's name. Other labeled claims do not cover the incumbent. Never invent citations, URLs, market sizes, or traction.
 
 Opening assessment and rebuttal:
 - fields.threatScore is an integer 0-10. It means how threatening this startup is to incumbents, not how good the idea is.
@@ -100,10 +100,12 @@ function guard(run: DebateRun, stage: ContributionStage, envelope: RoleEnvelope)
     const named = card.incumbent.toLowerCase();
     const supplied = briefText(run).includes(named);
     const labeled = envelope.assumptions.some(
-      (claim) => claim.grounding === "assumption" || claim.grounding === "unknown",
+      (claim) =>
+        (claim.grounding === "assumption" || claim.grounding === "unknown") &&
+        claim.statement.toLowerCase().includes(named),
     );
     if (!supplied && !labeled) {
-      return "A named incumbent the brief does not supply must be labeled assumption or unknown.";
+      return "A named incumbent the brief does not supply must be named in an assumption or unknown claim.";
     }
   }
   if (stage === "rebuttal") {

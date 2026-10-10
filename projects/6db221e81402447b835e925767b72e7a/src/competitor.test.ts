@@ -50,7 +50,7 @@ function cardJson(
     summary: `Stance ${stance} at ${threatScore}.`,
     rationale: "The attack follows from who already owns the clinic workflow.",
     assumptions: [
-      { statement: "Scheduling vendors already sit in this workflow.", grounding: "assumption" },
+      { statement: "Scheduling incumbents already sit in this workflow.", grounding: "assumption" },
       { statement: "Two pilot clinics exist.", grounding: "founder_provided" },
       { statement: "Renewal rate is unknown.", grounding: "unknown" },
     ],
@@ -204,12 +204,23 @@ describe("Competitor opening", () => {
 
   it("rejects an unnamed incumbent that is not labeled as an assumption", async () => {
     const raw = cardJson("NOT_A_THREAT", 1).replace(
-      '"assumptions":[{"statement":"Scheduling vendors already sit in this workflow.","grounding":"assumption"},{"statement":"Two pilot clinics exist.","grounding":"founder_provided"},{"statement":"Renewal rate is unknown.","grounding":"unknown"}]',
+      '"assumptions":[{"statement":"Scheduling incumbents already sit in this workflow.","grounding":"assumption"},{"statement":"Two pilot clinics exist.","grounding":"founder_provided"},{"statement":"Renewal rate is unknown.","grounding":"unknown"}]',
       '"assumptions":[{"statement":"Two pilot clinics exist.","grounding":"founder_provided"}]',
     );
     const result = await runCompetitorTurn(newRun(), client(raw), registry());
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.message).toContain("assumption");
+    expect(result.value.messages).toHaveLength(0);
+  });
+
+  it("rejects an assumption that does not name the incumbent", async () => {
+    const raw = cardJson("NOT_A_THREAT", 1).replace(
+      "Scheduling incumbents already sit in this workflow.",
+      "Some vendor already sits in this workflow.",
+    );
+    const result = await runCompetitorTurn(newRun(), client(raw), registry());
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.message).toContain("named in an assumption");
     expect(result.value.messages).toHaveLength(0);
   });
 });
