@@ -37,17 +37,24 @@ const CHANGE_SOURCES = [
 
 type ChangeSource = (typeof CHANGE_SOURCES)[number];
 
-const SECTION_LABELS = [
+export const CHAIR_SECTION_LABELS = [
   "FINAL VERDICT",
-  "INVESTMENT CONFIDENCE",
+  "CONFIDENCE",
   "SCORES",
   "BRUTAL ONE-LINE SUMMARY",
+  "FINAL DECISION RATIONALE",
+  "WHAT THE COMMITTEE AGREED ON",
+  "WHAT THE COMMITTEE DISAGREED ON",
   "STRONGEST EVIDENCE",
-  "BIGGEST UNRESOLVED RISK",
+  "WEAKEST ASSUMPTION",
   "WHAT CHANGED DURING DEBATE",
+  "MOST INFLUENTIAL AGENT",
   "TOP 3 KILL RISKS",
-  "CHEAPEST TEST THIS WEEK",
+  "CHEAPEST VALIDATION TEST THIS WEEK",
   "RECOMMENDED 72-HOUR MVP",
+  "GO CRITERIA",
+  "PIVOT DIRECTION",
+  "STOP DOING",
   "FINAL COMMITTEE NOTE",
 ] as const;
 
@@ -63,6 +70,11 @@ const ROLE_LABEL: Record<string, string> = {
 export const CHAIR_INSTRUCTIONS = `You are the Investment Committee Chair for Venture Gauntlet. You are the final decision-maker: disciplined, clear, and decisive. You are not another debater and you do not add a fifth opinion. You evaluate the full debate and decide what the founder should do next. You care about evidence quality, not loud opinions.
 
 Use these exact keys inside fields: displayVerdict, confidence, demand, demandReason, buildability, buildabilityReason, fundability, fundabilityReason, defensibility, defensibilityReason, brutalSummary, strongestEvidence, strongestArgument, outweighedArgument, weakestAssumption, biggestUnresolvedRisk, whatChanged, evidenceWeighting, finalNote, killRisks, debateChanged, changeSource, concessionsCited, testParticipant, testAction, testObservable, testSuccess, testFailure, testDays, mvpWorkflow, mvpManual, mvpMustWork, mvpHours, doNotBuild. Reasons and narrative fields are nonempty explanatory strings. Use changeExcerpt when debateChanged is true. For GO also include explanatory strings goPain, goBuildable, goSwitch, goRevenue, goCompetition. For PIVOT include pivotDimension and pivotDirection in fields and the same pivotDirection in decision; finalNote must include that exact direction. Omit pivotDirection for other verdicts. For KILL include fatalObjection and tell the founder to stop or do not build in finalNote; omit disconfirmation unless a bounded prototype is justified. Do not provide formattedVerdict: the adapter renders it. decision must include verdict and nonempty string arrays decisiveReasons, disagreements, unresolvedRisks, nextSteps. Include biggestUnresolvedRisk in decision.unresolvedRisks and name the disagreeing specialists in decision.disagreements.
+
+
+Expanded report fields: decisionRationale (exactly 2–3 sentences), committeeAgreement, committeeDisagreement, influentialAgent (vc, customer, competitor, engineer, or red_team), influentialReason, influentialExcerpt (a verbatim quote from that agent's supplied contribution), and stopDoing. Name the strongest shared point and unresolved disagreement without inventing consensus; explicitly say when no common ground or unresolved disagreement exists. goCriteria, goCriteriaTests, goCriteriaPass, and goCriteriaFail are four parallel string arrays of length exactly three. Each criterion specifies what must be proven, a concrete test, an observable success threshold and a failure threshold. Together cover real pain and willingness to switch/pay, reliable buildability and viable revenue, and survivable competition. For an existing GO, describe the evidence that must hold before scaling.
+
+Improvement feedback stays in GO CRITERIA and PIVOT DIRECTION, without extra report sections. Use parallel string arrays improvementTargets, improvementStatus, improvementChanges, improvementEvidence, improvementSuccess, improvementFailure. KILL requires targets ["PIVOT", "GO"], PIVOT requires ["GO"], GO requires ["GO"] to maintain the verdict. Each status is "conditional" or "unavailable". For conditional paths specify the exact customer, problem, solution, wedge or business-model change, new evidence required, and observable pass/fail thresholds. KILL-to-GO must overcome the fatal objection and all five GO conditions, not merely rescore the idea. For an unavailable path explain why in improvementChanges; never invent a rescue or promise success. Do not upgrade the current verdict: these are future hypotheses requiring a new debate with fresh evidence. KILL still says not to build the current product; recommend only bounded validation or a manual test of a changed premise.
 
 The startup under evaluation is only the founder brief in the transcript. Do not treat Venture Gauntlet, this software, or the committee product as the idea being judged.
 
@@ -119,6 +131,14 @@ interface ChairParts {
   mvpText: string;
   finalNote: string;
   founderLine: string;
+  decisionRationale: string;
+  committeeAgreement: string;
+  committeeDisagreement: string;
+  influentialAgent: string;
+  influentialReason: string;
+  goCriteriaText: string;
+  improvementText: string;
+  stopDoing: string;
   pivotDirection?: string;
   assumptions: RoleEnvelope["assumptions"];
   disagreements: string[];
@@ -218,23 +238,35 @@ export function formatChairVerdict(parts: ChairParts): string {
     `Weakest assumption: ${parts.weakestAssumption}`,
   ].join(" ");
   const sections = [
-    `FINAL VERDICT: ${parts.display}`,
-    `INVESTMENT CONFIDENCE: ${parts.confidence}%`,
+    "# INVESTMENT COMMITTEE CHAIR OUTPUT",
+    `FINAL VERDICT:\n${parts.display}`,
+    `CONFIDENCE:\n${parts.confidence}%`,
     `SCORES:\n${scores}`,
     `BRUTAL ONE-LINE SUMMARY:\n${parts.brutalSummary}`,
-    `STRONGEST EVIDENCE:\n${parts.strongestEvidence}\nStrongest argument: ${parts.strongestArgument}`,
-    `BIGGEST UNRESOLVED RISK:\n${parts.biggestUnresolvedRisk}`,
+    `FINAL DECISION RATIONALE:\n${parts.decisionRationale}`,
+    `WHAT THE COMMITTEE AGREED ON:\n${parts.committeeAgreement}`,
+    `WHAT THE COMMITTEE DISAGREED ON:\n${parts.committeeDisagreement}`,
+    `STRONGEST EVIDENCE:\n${parts.strongestEvidence}`,
+    `WEAKEST ASSUMPTION:\n${parts.weakestAssumption}`,
     `WHAT CHANGED DURING DEBATE:\n${changed}`,
+    `MOST INFLUENTIAL AGENT:\n${ROLE_LABEL[parts.influentialAgent]} — ${parts.influentialReason}`,
     `TOP 3 KILL RISKS:\n${risks}`,
-    `CHEAPEST TEST THIS WEEK:\n${parts.testText}`,
+    `CHEAPEST VALIDATION TEST THIS WEEK:\n${parts.testText}`,
     `RECOMMENDED 72-HOUR MVP:\n${parts.mvpText}`,
+    `GO CRITERIA:\n${parts.goCriteriaText}\n\n${parts.improvementText}`,
+    `PIVOT DIRECTION:\n${parts.display === "PIVOT" ? parts.pivotDirection : parts.display === "KILL" ? "Do not build the current idea. Test only the conditional changes described above; no upgrade is earned yet." : "No pivot required by this verdict. Validate the GO criteria before scaling."}`,
+    `STOP DOING:\n${parts.stopDoing}`,
     `FINAL COMMITTEE NOTE:\n${parts.finalNote}`,
   ];
   return sections.join("\n\n");
 }
 
 export function parseFormattedChair(raw: string): { ok: true; display: DisplayVerdict; confidence: number; scores: number[] } | { ok: false; message: string } {
-  const indexes = SECTION_LABELS.map((label) => raw.indexOf(label));
+  const labels = [...raw.matchAll(/^([A-Z][A-Z 0-9-]+):$/gm)].map((match) => match[1]);
+  if (labels.length !== CHAIR_SECTION_LABELS.length || labels.some((label, index) => label !== CHAIR_SECTION_LABELS[index])) {
+    return { ok: false, message: "The Chair output must use exactly the required sections in order." };
+  }
+  const indexes = CHAIR_SECTION_LABELS.map((label) => raw.indexOf(`${label}:`));
   if (indexes.some((index) => index < 0)) {
     return { ok: false, message: "The Chair output is missing a required section." };
   }
@@ -244,7 +276,7 @@ export function parseFormattedChair(raw: string): { ok: true; display: DisplayVe
     }
   }
   const verdict = raw.match(/FINAL VERDICT:\s*(GO|PIVOT|KILL)\b/);
-  const confidence = raw.match(/INVESTMENT CONFIDENCE:\s*(\d{1,3})%/);
+  const confidence = raw.match(/CONFIDENCE:\s*(\d{1,3})%/);
   if (!verdict || !confidence) {
     return { ok: false, message: "The Chair verdict line is malformed." };
   }
@@ -259,7 +291,7 @@ export function parseFormattedChair(raw: string): { ok: true; display: DisplayVe
   if (scores.some((score) => score == null || score > 10)) {
     return { ok: false, message: "Each Chair score needs an integer from 0 to 10 and a justification." };
   }
-  const riskLines = raw.split("TOP 3 KILL RISKS:")[1]?.split("CHEAPEST TEST THIS WEEK:")[0] ?? "";
+  const riskLines = raw.split("TOP 3 KILL RISKS:")[1]?.split("CHEAPEST VALIDATION TEST THIS WEEK:")[0] ?? "";
   const risks = [...riskLines.matchAll(/^\d+\.\s+\S.+$/gm)].map((match) => match[0]);
   if (risks.length !== 3) {
     return { ok: false, message: "The Chair must list exactly three kill risks." };
@@ -337,6 +369,44 @@ export function normalizeChairPayload(
   const whatChanged = text(fields.whatChanged);
   const evidenceWeighting = text(fields.evidenceWeighting);
   const finalNote = text(fields.finalNote);
+  const decisionRationale = text(fields.decisionRationale);
+  const committeeAgreement = text(fields.committeeAgreement);
+  const committeeDisagreement = text(fields.committeeDisagreement);
+  const influentialAgent = text(fields.influentialAgent);
+  const influentialReason = text(fields.influentialReason);
+  const influentialExcerpt = text(fields.influentialExcerpt);
+  const stopDoing = text(fields.stopDoing);
+  const sentenceCount = decisionRationale.split(/[.!?]+(?:\s+|$)/).filter((sentence) => sentence.trim()).length;
+  if (sentenceCount < 2 || sentenceCount > 3 || [committeeAgreement, committeeDisagreement, influentialReason, stopDoing].some((value) => value.length < 12)) {
+    return fail("The expanded Chair report needs a 2–3 sentence rationale, agreement, disagreement, agent influence, and stop-doing guidance.");
+  }
+  if (![...SPECIALIST_ROLES, "red_team"].includes(influentialAgent) || influentialExcerpt.length < 8 || !run.messages.some((message) => message.speaker === influentialAgent && speakerText(message).includes(influentialExcerpt))) {
+    return fail("The most influential agent must quote an actual supplied agent contribution.");
+  }
+  const criteriaArrays = ["goCriteria", "goCriteriaTests", "goCriteriaPass", "goCriteriaFail"].map((key) => stringList(fields[key]));
+  if (criteriaArrays.some((items) => !items || items.length !== 3 || items.some((item) => item.length < 8)) || new Set(criteriaArrays[0]).size !== 3) {
+    return fail("GO criteria require exactly three distinct claims, each with a concrete test and pass/fail thresholds.");
+  }
+  const [criteria, criteriaTests, criteriaPass, criteriaFail] = criteriaArrays as string[][];
+  const goCriteriaText = criteria.map((criterion, index) => `${index + 1}. ${criterion} Test: ${criteriaTests[index]} Success: ${criteriaPass[index]} Failure: ${criteriaFail[index]}`).join("\n");
+  const expectedTargets = display === "KILL" ? ["PIVOT", "GO"] : ["GO"];
+  const improvementArrays = ["improvementTargets", "improvementStatus", "improvementChanges", "improvementEvidence", "improvementSuccess", "improvementFailure"].map((key) => stringList(fields[key]));
+  if (improvementArrays.some((items) => !items || items.length !== expectedTargets.length)) {
+    return fail("Improvement feedback must include every required verdict path and its evidence and thresholds.");
+  }
+  const [targets, statuses, changes, evidence, successes, failures] = improvementArrays as string[][];
+  if (targets.some((target, index) => target !== expectedTargets[index]) || statuses.some((status) => status !== "conditional" && status !== "unavailable")) {
+    return fail("Improvement paths must preserve the current verdict and identify conditional or unavailable routes.");
+  }
+  if (changes.some((change, index) => change.length < 12 || (statuses[index] === "conditional" && [evidence[index], successes[index], failures[index]].some((value) => value.length < 8)))) {
+    return fail("A conditional improvement needs an exact change, new evidence, and observable pass/fail thresholds.");
+  }
+  const improvementText = targets.map((target, index) => {
+    const route = display === "GO" ? "Maintain GO" : `${display} → ${target}`;
+    return statuses[index] === "unavailable"
+      ? `${route}: No credible path identified. ${changes[index]}`
+      : `${route} (conditional): ${changes[index]} Evidence required: ${evidence[index]} Success: ${successes[index]} Failure: ${failures[index]} Reassess in a new debate; the current verdict remains ${display}.`;
+  }).join("\n\n");
   if (
     brutalSummary.length < 12 ||
     strongestEvidence.length < 12 ||
@@ -376,8 +446,8 @@ export function normalizeChairPayload(
     }
   } else {
     const excerpt = text(fields.changeExcerpt);
-    const speaker = run.messages.find((message) => message.speaker === source);
-    if (source === "none" || excerpt.length < 8 || !speaker || !speakerText(speaker).toLowerCase().includes(excerpt.toLowerCase())) {
+    const speakers = run.messages.filter((message) => message.speaker === source);
+    if (source === "none" || excerpt.length < 8 || !speakers.some((speaker) => speakerText(speaker).toLowerCase().includes(excerpt.toLowerCase()))) {
       return fail("Debate-change reasoning must quote a supplied contribution.");
     }
   }
@@ -467,7 +537,7 @@ export function normalizeChairPayload(
   }
   if (text(fields.formattedVerdict)) {
     const supplied = parseFormattedChair(text(fields.formattedVerdict));
-    if (!supplied.ok || supplied.display !== display || supplied.confidence !== confidence) {
+    if (!supplied.ok || supplied.display !== display || supplied.confidence !== confidence || supplied.scores.some((score, index) => score !== scores[index].score)) {
       return fail("Structured Chair fields disagree with the formatted verdict.");
     }
   }
@@ -478,6 +548,14 @@ export function normalizeChairPayload(
   const goReasons = ["goPain", "goBuildable", "goSwitch", "goRevenue", "goCompetition"].map((key) => text(fields[key])).filter(Boolean);
   const decisiveReasons = display === "GO" ? goReasons : display === "KILL" ? [text(fields.fatalObjection), ...modelReasons] : [pivotDirection, ...modelReasons];
   const parts: ChairParts = {
+    decisionRationale,
+    committeeAgreement,
+    committeeDisagreement,
+    influentialAgent,
+    influentialReason,
+    goCriteriaText,
+    improvementText,
+    stopDoing,
     display,
     shared,
     confidence,
@@ -509,7 +587,7 @@ export function normalizeChairPayload(
 
   const canonical = {
     summary: formatted,
-    rationale: `The strongest argument was ${strongestArgument}. It outweighed ${outweighedArgument} because ${evidenceWeighting}`,
+    rationale: decisionRationale,
     assumptions,
     risks: killRisks,
     positionLabel: shared,
@@ -525,7 +603,7 @@ export function normalizeChairPayload(
       decisiveReasons,
       disagreements,
       unresolvedRisks,
-      nextSteps: [testText, mvpText],
+      nextSteps: [testText, mvpText, goCriteriaText, improvementText, `Stop doing: ${stopDoing}`],
       ...(display === "PIVOT" ? { pivotDirection } : {}),
     },
   };

@@ -1,4 +1,6 @@
 import { Readable } from "node:stream";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { handleDebateApi, storeRun } from "./server";
 import { validateBrief, type IdeaBrief } from "./brief";
@@ -20,6 +22,7 @@ import {
 import type { ModelClient } from "./provider";
 import {
   CHAIR_INSTRUCTIONS,
+  CHAIR_SECTION_LABELS,
   chairContextGap,
   chairVerdictFromScores,
   displayVerdictFor,
@@ -147,6 +150,25 @@ function payload(display: "GO" | "PIVOT" | "KILL", extra: Record<string, unknown
     defensibility: 3,
     defensibilityReason: "Scheduling incumbents can copy a thin wrapper.",
     brutalSummary: "A real leak, still too easy to copy.",
+    decisionRationale: "Customer switching evidence matters more than implementation optimism. Buildability alone does not establish a viable business.",
+    committeeAgreement: "The specialists recognize that switching needs validation.",
+    committeeDisagreement: "Customer switching friction outweighs Engineer optimism about building.",
+    influentialAgent: "customer",
+    influentialReason: "Switching friction affects whether any build earns revenue.",
+    influentialExcerpt: "customer argued from the brief",
+    stopDoing: "Stop building scheduler integrations until a buyer prepays.",
+    goCriteria: ["Prove customers switch and pay.", "Prove reliable delivery with viable unit economics.", "Prove a wedge survives incumbent bundling."],
+    goCriteriaTests: ["Offer paid pilots to 10 clinic managers.", "Manually process 20 bookings and measure costs.", "Compare the workflow against the incumbent in 5 clinics."],
+    goCriteriaPass: ["At least 3 managers prepay.", "At least 19 bookings succeed at positive contribution margin.", "At least 3 clinics choose the wedge over the bundled alternative."],
+    goCriteriaFail: ["Fewer than 3 managers prepay.", "Fewer than 19 bookings succeed or margin is negative.", "Fewer than 3 clinics choose the wedge."],
+    improvementTargets: display === "KILL" ? ["PIVOT", "GO"] : ["GO"],
+    improvementStatus: display === "KILL" ? ["conditional", "conditional"] : ["conditional"],
+    improvementChanges: display === "KILL"
+      ? ["Narrow to clinic groups with a manual overflow booking service.", "Test the changed clinic-group workflow before committing to a product build."]
+      : ["Narrow to clinic groups and validate repeat paid usage before scaling."],
+    improvementEvidence: display === "KILL" ? ["Payment for manual overflow booking.", "Paid renewal, reliable delivery, positive margins and preference over bundling."] : ["Paid renewal, reliable delivery and preference over bundling."],
+    improvementSuccess: display === "KILL" ? ["3 of 10 groups prepay a manual pilot.", "3 groups renew, 19 of 20 bookings succeed and every GO criterion passes."] : ["3 groups renew and every GO criterion passes."],
+    improvementFailure: display === "KILL" ? ["Fewer than 3 groups prepay; stop this wedge.", "Any GO criterion fails; retain the current verdict."] : ["Any GO criterion fails; do not upgrade or scale."],
     strongestEvidence: "Clinics already lose visits to unanswered calls.",
     strongestArgument: "Customer switching friction",
     outweighedArgument: "Engineer buildability optimism",
@@ -247,8 +269,9 @@ describe("Chair API integration", () => {
         expect(response.run.lock).toBeNull();
         expect(response.run.messages.slice(0, run.messages.length)).toEqual(run.messages);
         if (valid) {
+          if (process.env.PARTY_OUTPUT_DIR) writeFileSync(join(process.env.PARTY_OUTPUT_DIR, "chair-preview.json"), JSON.stringify(response.run));
           expect(response.run.phase).toBe("complete");
-          expect(response.run.messages.at(-1)?.body).toContain("FINAL VERDICT: KILL");
+          expect(response.run.messages.at(-1)?.body).toContain("FINAL VERDICT:\nKILL");
           expect(response.run.messages.at(-1)?.envelope?.fields.displayVerdict).toBe("KILL");
           expect(response.run.messages.at(-1)?.envelope?.decision?.verdict).toBe("pass");
         } else {
@@ -309,11 +332,17 @@ describe("Chair verdicts", () => {
       expect(envelope?.positionLabel).toBe(sharedVerdictFor(display));
       expect(envelope?.vc).toBeNull();
       const formatted = String(envelope?.fields.formattedVerdict);
+      expect(formatted.startsWith("# INVESTMENT COMMITTEE CHAIR OUTPUT\n\n")).toBe(true);
+      expect([...formatted.matchAll(/^([A-Z][A-Z 0-9-]+):$/gm)].map((match) => match[1])).toEqual([...CHAIR_SECTION_LABELS]);
+      expect(envelope?.fields.goCriteria).toHaveLength(3);
+      expect(formatted).toContain(display === "GO" ? "Maintain GO" : `${display} → GO`);
+      if (display === "KILL") expect(formatted).toContain("KILL → PIVOT");
+      expect(envelope?.decision?.nextSteps.join(" ")).toContain("Evidence required:");
       const read = parseFormattedChair(formatted);
       expect(read.ok).toBe(true);
       if (!read.ok) return;
       expect(read.display).toBe(display);
-      expect(formatted.indexOf("FINAL VERDICT")).toBeLessThan(formatted.indexOf("INVESTMENT CONFIDENCE"));
+      expect(formatted.indexOf("FINAL VERDICT")).toBeLessThan(formatted.indexOf("CONFIDENCE"));
       expect(formatted.indexOf("FINAL COMMITTEE NOTE")).toBeGreaterThan(formatted.indexOf("RECOMMENDED 72-HOUR MVP"));
       expect(formatted).toContain("Demand: ");
       expect(formatted).toContain("Success:");
@@ -364,6 +393,33 @@ describe("Chair verdicts", () => {
 });
 
 describe("Chair recovery", () => {
+  it("requires complete measurable improvement feedback rather than upgrading a verdict", () => {
+    const run = ready();
+    for (const key of ["goCriteriaTests", "goCriteriaPass", "goCriteriaFail", "improvementEvidence", "improvementSuccess", "improvementFailure", "stopDoing", "influentialExcerpt"]) {
+      const raw = JSON.parse(payload("KILL", { fields: { finalNote: "Stop. Do not build this wedge." } }));
+      delete raw.fields[key];
+      expect(normalizeChairPayload(run, JSON.stringify(raw)).ok, key).toBe(false);
+    }
+    const wrongTarget = payload("KILL", { fields: { finalNote: "Stop. Do not build this wedge.", improvementTargets: ["GO", "GO"] } });
+    expect(normalizeChairPayload(run, wrongTarget).ok).toBe(false);
+    const inventedAgent = payload("KILL", { fields: { finalNote: "Stop. Do not build this wedge.", influentialAgent: "founder" } });
+    expect(normalizeChairPayload(run, inventedAgent).ok).toBe(false);
+  });
+
+  it("reports honestly when no credible recovery path exists", () => {
+    const run = ready();
+    const normalized = normalizeChairPayload(run, payload("KILL", { fields: {
+      finalNote: "Stop. Do not build this wedge.",
+      improvementStatus: ["unavailable", "unavailable"],
+      improvementChanges: ["The supplied brief offers no alternative buyer with a reason to pay.", "The core objection remains unanswered and no supported rescue is identified."],
+    } }));
+    expect(normalized.ok).toBe(true);
+    if (normalized.ok) {
+      expect(normalized.formatted).toContain("KILL → PIVOT: No credible path identified.");
+      expect(normalized.formatted).toContain("KILL → GO: No credible path identified.");
+      expect(JSON.parse(normalized.raw).decision.verdict).toBe("pass");
+    }
+  });
   it("returns incomplete context without a score or verdict", async () => {
     const run = createRun(brief());
     expect(chairContextGap(run)).toMatch(/missing/i);
@@ -469,7 +525,7 @@ describe("Chair recovery", () => {
     expect(parsed.value.decision?.verdict).toBe("pivot");
     expect(parsed.value.positionLabel).toBe("pivot");
     expect(String(parsed.value.fields.displayVerdict)).toBe("PIVOT");
-    expect(parsed.value.summary).toContain("FINAL VERDICT: PIVOT");
+    expect(parsed.value.summary).toContain("FINAL VERDICT:\nPIVOT");
     expect(parsed.value.summary).not.toContain("MAYBE");
   });
 });
