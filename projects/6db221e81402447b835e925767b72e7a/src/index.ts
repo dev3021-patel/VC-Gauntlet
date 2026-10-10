@@ -4,4 +4,5 @@ export * from "./debate";
 export * from "./provider";
 export * from "./chair";
 export * from "./vc";
+export * from "./competitor";
 export * from "./redTeam";

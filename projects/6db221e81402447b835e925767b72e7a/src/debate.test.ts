@@ -32,9 +32,23 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
     investmentPosition: "MAYBE",
     strongestInvestmentCase: "The pain is frequent and budgeted.",
     biggestFundabilityRisk: "It may stay a service.",
+    marketSizeConcern: "Independent clinics may be too small a market.",
     first100Users: "Use the founder's clinic network.",
+    defensibilityConcern: "Incumbent clinic software can ship the same intake flow.",
     killShotQuestion: "Who renews after month three?",
     oneLineVerdict: "Promising wedge, unproven scale.",
+  };
+  const competitorFields = {
+    threatScore: 2,
+    stance: "COPYABLE_FEATURE",
+    incumbent: "Scheduling incumbents",
+    crushPlan: "Bundle the intake step into the existing clinic suite and make it free.",
+    weakMoat: "No proprietary clinic data and no workflow lock-in.",
+    copyabilityRisk: "A larger company can recreate the core feature in a sprint.",
+    distributionDisadvantage: "The incumbent already owns the clinic relationship.",
+    dangerousMove: "Exclusive clinic-network data the incumbent cannot see.",
+    founderQuestion: "What do you own if the incumbent bundles this?",
+    verdict: "This is a feature, not a company.",
   };
   return JSON.stringify({
     summary: `${role} weighs ${extra.summary ?? "the submitted idea"}.`,
@@ -46,13 +60,16 @@ function envelope(role: RoleId, extra: Record<string, unknown> = {}) {
       },
     ],
     risks: ["The first channel may not repeat."],
-    positionLabel: role === "vc" ? "MAYBE" : role === "chair" ? "pass" : "skeptical",
+    positionLabel:
+      role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : role === "chair" ? "pass" : "skeptical",
     fields:
       role === "vc"
         ? vcFields
-        : role === "red_team"
-          ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which claim is evidenced?"] }
-          : {},
+        : role === "competitor"
+          ? competitorFields
+          : role === "red_team"
+            ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which claim is evidenced?"] }
+            : {},
     changed: extra.changed,
     changeReason: extra.changeReason,
     decision: extra.decision,

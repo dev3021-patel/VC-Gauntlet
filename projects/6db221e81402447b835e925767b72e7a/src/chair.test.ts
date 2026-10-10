@@ -67,13 +67,25 @@ function specialist(role: RoleId, position: string, stage: "assessment" | "rebut
     killShotQuestion: "Who renews after the pilot?",
     oneLineVerdict: "Real leak, unproven company.",
   };
+  const competitorFields = {
+    threatScore: 2,
+    stance: "COPYABLE_FEATURE",
+    incumbent: "Scheduling incumbents",
+    crushPlan: "Bundle the booking feature and make it free.",
+    weakMoat: "No proprietary clinic data.",
+    copyabilityRisk: "A vendor can recreate the feature in a sprint.",
+    distributionDisadvantage: "The incumbent already owns the clinic relationship.",
+    dangerousMove: "Exclusive clinic data the incumbent cannot see.",
+    founderQuestion: "What do you own if the incumbent bundles this?",
+    verdict: "This is a feature, not a company.",
+  };
   return JSON.stringify({
     summary: `${role} says ${position} about switching cost.`,
     rationale: `${role} argued from the brief, not from a market study.`,
     assumptions: [{ statement: `${role} demand beyond the brief is unproven.`, grounding: "assumption" }],
     risks: [`${role} channel may not repeat.`],
-    positionLabel: position,
-    fields: role === "vc" ? vcFields : role === "red_team"
+    positionLabel: role === "competitor" ? "COPYABLE_FEATURE" : position,
+    fields: role === "vc" ? vcFields : role === "competitor" ? competitorFields : role === "red_team"
       ? { targetedRoles: [...SPECIALIST_ROLES], questions: ["Which switching claim is evidenced?"] }
       : {},
     changed: stage === "rebuttal" ? changed : undefined,

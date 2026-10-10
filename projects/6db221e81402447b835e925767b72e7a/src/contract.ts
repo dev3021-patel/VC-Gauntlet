@@ -33,6 +33,9 @@ export type ContributionStage = (typeof CONTRIBUTION_STAGES)[number];
 export const VC_POSITIONS = ["INVEST", "MAYBE", "PASS"] as const;
 export type VcPosition = (typeof VC_POSITIONS)[number];
 
+export const COMPETITOR_STANCES = ["NOT_A_THREAT", "COPYABLE_FEATURE", "REAL_WEDGE"] as const;
+export type CompetitorStance = (typeof COMPETITOR_STANCES)[number];
+
 export const CHAIR_VERDICTS = ["invest", "pivot", "pass"] as const;
 export type ChairVerdict = (typeof CHAIR_VERDICTS)[number];
 
@@ -68,9 +71,24 @@ export interface VcScorecard {
   investmentPosition: VcPosition;
   strongestInvestmentCase: string;
   biggestFundabilityRisk: string;
+  marketSizeConcern: string;
   first100Users: string;
+  defensibilityConcern: string;
   killShotQuestion: string;
   oneLineVerdict: string;
+}
+
+export interface CompetitorScorecard {
+  threatScore: number;
+  stance: CompetitorStance;
+  incumbent: string;
+  crushPlan: string;
+  weakMoat: string;
+  copyabilityRisk: string;
+  distributionDisadvantage: string;
+  dangerousMove: string;
+  founderQuestion: string;
+  verdict: string;
 }
 
 export interface RoleEnvelope {
@@ -87,6 +105,7 @@ export interface RoleEnvelope {
   fields: RoleFields;
   decision: ChairDecision | null;
   vc: VcScorecard | null;
+  competitor: CompetitorScorecard | null;
 }
 
 export interface RoleSlot {
@@ -109,7 +128,7 @@ export const ROLE_SLOTS: readonly RoleSlot[] = [
   {
     id: "competitor",
     label: "Competitor",
-    mandate: "Evaluate alternatives and whether the idea is differentiated.",
+    mandate: "Attack the submitted idea as the strongest incumbent.",
   },
   {
     id: "engineer",
@@ -179,6 +198,10 @@ export function isChairVerdict(value: string): value is ChairVerdict {
 
 export function isVcPosition(value: string): value is VcPosition {
   return (VC_POSITIONS as readonly string[]).includes(value);
+}
+
+export function isCompetitorStance(value: string): value is CompetitorStance {
+  return (COMPETITOR_STANCES as readonly string[]).includes(value);
 }
 
 export function chairVerdictFromVcPosition(_position: VcPosition): null {
@@ -266,13 +289,17 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
   if (positionLabel !== investmentPosition) return null;
   const strongestInvestmentCase = fields.strongestInvestmentCase;
   const biggestFundabilityRisk = fields.biggestFundabilityRisk;
+  const marketSizeConcern = fields.marketSizeConcern;
   const first100Users = fields.first100Users;
+  const defensibilityConcern = fields.defensibilityConcern;
   const killShotQuestion = fields.killShotQuestion;
   const oneLineVerdict = fields.oneLineVerdict;
   if (
     typeof strongestInvestmentCase !== "string" ||
     typeof biggestFundabilityRisk !== "string" ||
+    typeof marketSizeConcern !== "string" ||
     typeof first100Users !== "string" ||
+    typeof defensibilityConcern !== "string" ||
     typeof killShotQuestion !== "string" ||
     typeof oneLineVerdict !== "string"
   ) {
@@ -281,7 +308,9 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
   if (
     !strongestInvestmentCase.trim() ||
     !biggestFundabilityRisk.trim() ||
+    !marketSizeConcern.trim() ||
     !first100Users.trim() ||
+    !defensibilityConcern.trim() ||
     !killShotQuestion.trim() ||
     !oneLineVerdict.trim()
   ) {
@@ -292,9 +321,66 @@ function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null 
     investmentPosition,
     strongestInvestmentCase: strongestInvestmentCase.trim(),
     biggestFundabilityRisk: biggestFundabilityRisk.trim(),
+    marketSizeConcern: marketSizeConcern.trim(),
     first100Users: first100Users.trim(),
+    defensibilityConcern: defensibilityConcern.trim(),
     killShotQuestion: killShotQuestion.trim(),
     oneLineVerdict: oneLineVerdict.trim(),
+  };
+}
+
+function requiredField(fields: RoleFields, key: string): string | null {
+  const value = fields[key];
+  if (typeof value !== "string" || !value.trim()) return null;
+  return value.trim();
+}
+
+function parseCompetitor(fields: RoleFields, positionLabel: string): CompetitorScorecard | null {
+  const threatScore = fields.threatScore;
+  const stance = fields.stance;
+  if (
+    typeof threatScore !== "number" ||
+    !Number.isInteger(threatScore) ||
+    threatScore < 0 ||
+    threatScore > 10
+  ) {
+    return null;
+  }
+  if (typeof stance !== "string" || !isCompetitorStance(stance) || positionLabel !== stance) {
+    return null;
+  }
+  const incumbent = requiredField(fields, "incumbent");
+  const crushPlan = requiredField(fields, "crushPlan");
+  const weakMoat = requiredField(fields, "weakMoat");
+  const copyabilityRisk = requiredField(fields, "copyabilityRisk");
+  const distributionDisadvantage = requiredField(fields, "distributionDisadvantage");
+  const dangerousMove = requiredField(fields, "dangerousMove");
+  const founderQuestion = requiredField(fields, "founderQuestion");
+  const verdict = requiredField(fields, "verdict");
+  if (
+    !incumbent ||
+    !crushPlan ||
+    !weakMoat ||
+    !copyabilityRisk ||
+    !distributionDisadvantage ||
+    !dangerousMove ||
+    !founderQuestion ||
+    !verdict ||
+    !founderQuestion.includes("?")
+  ) {
+    return null;
+  }
+  return {
+    threatScore,
+    stance,
+    incumbent,
+    crushPlan,
+    weakMoat,
+    copyabilityRisk,
+    distributionDisadvantage,
+    dangerousMove,
+    founderQuestion,
+    verdict,
   };
 }
 
@@ -372,6 +458,7 @@ export function parseContribution(
 
   let decision: ChairDecision | null = null;
   let vc: VcScorecard | null = null;
+  let competitor: CompetitorScorecard | null = null;
   if (role === "chair") {
     if (stage !== "verdict") return invalid("The Chair only speaks at the verdict.");
     const decisionRecord = asRecord(record.decision);
@@ -389,7 +476,16 @@ export function parseContribution(
     vc = parseVc(fields, positionLabel);
     if (!vc) {
       return invalid(
-        "VC responses require a 0-100 score and INVEST, MAYBE, or PASS. MAYBE is not Pivot.",
+        "VC responses require a 0-100 score, INVEST, MAYBE, or PASS, plus market size, distribution, and defensibility. MAYBE is not Pivot.",
+      );
+    }
+  }
+
+  if (role === "competitor" && (stage === "assessment" || stage === "rebuttal")) {
+    competitor = parseCompetitor(fields, positionLabel);
+    if (!competitor) {
+      return invalid(
+        "Competitor responses require a 0-10 threat score and NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE.",
       );
     }
   }
@@ -422,6 +518,7 @@ export function parseContribution(
       fields,
       decision,
       vc,
+      competitor,
     },
   };
 }

@@ -590,7 +590,9 @@ function record(run: DebateRun, role: SpecialistRole, summary: string, position:
     investmentPosition: "MAYBE",
     strongestInvestmentCase: "Missed calls are a measurable revenue leak.",
     biggestFundabilityRisk: "The total market is $50B is not a buyer list.",
+    marketSizeConcern: "The clinic segment may not support venture scale.",
     first100Users: "Sell through the founder's clinic network.",
+    defensibilityConcern: "Scheduling incumbents can copy call booking.",
     killShotQuestion: "Who renews after the pilot?",
     oneLineVerdict: "A feature until the buyer is named.",
   };
@@ -601,8 +603,21 @@ function record(run: DebateRun, role: SpecialistRole, summary: string, position:
       rationale: "Reasoned only from the submitted brief.",
       assumptions: [{ statement: "Demand beyond the brief is unproven.", grounding: "assumption" }],
       risks: ["The first channel may not repeat."],
-      positionLabel: role === "vc" ? "MAYBE" : position,
-      fields: role === "vc" ? vcFields : { note: summary },
+      positionLabel: role === "vc" ? "MAYBE" : role === "competitor" ? "COPYABLE_FEATURE" : position,
+      fields: role === "vc" ? vcFields : role === "competitor"
+        ? {
+            threatScore: 2,
+            stance: "COPYABLE_FEATURE",
+            incumbent: "Scheduling incumbents",
+            crushPlan: "Bundle the booking feature and make it free.",
+            weakMoat: "No proprietary clinic data.",
+            copyabilityRisk: "A vendor can recreate the feature in a sprint.",
+            distributionDisadvantage: "The incumbent already owns the clinic relationship.",
+            dangerousMove: "Exclusive clinic data the incumbent cannot see.",
+            founderQuestion: "What do you own if the incumbent bundles this?",
+            verdict: "This is a feature, not a company.",
+          }
+        : { note: summary },
     }),
   );
   if (!done.ok) throw new Error(done.error.message);

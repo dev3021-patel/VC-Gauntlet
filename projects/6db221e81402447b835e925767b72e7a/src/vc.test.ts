@@ -81,7 +81,29 @@ function fill(run: DebateRun, role: (typeof SPECIALIST_ROLES)[number]): DebateRu
   const raw =
     role === "vc"
       ? vcJson("MAYBE", 50)
-      : JSON.stringify({
+      : role === "competitor"
+        ? JSON.stringify({
+            summary: "Scheduling incumbents would bundle this feature.",
+            rationale: "The attack follows from the clinic workflow they already own.",
+            assumptions: [{ statement: "Scheduling vendors own this workflow.", grounding: "assumption" }],
+            risks: ["bundle"],
+            positionLabel: "COPYABLE_FEATURE",
+            fields: {
+              threatScore: 2,
+              stance: "COPYABLE_FEATURE",
+              incumbent: "Scheduling incumbents",
+              crushPlan: "Bundle the booking feature and make it free.",
+              weakMoat: "No proprietary clinic data.",
+              copyabilityRisk: "A vendor can recreate the feature in a sprint.",
+              distributionDisadvantage: "The incumbent already owns the clinic relationship.",
+              dangerousMove: "Exclusive clinic data the incumbent cannot see.",
+              founderQuestion: "What do you own if the incumbent bundles this?",
+              verdict: "This is a feature, not a company.",
+            },
+            changed: started.value.lock?.stage === "rebuttal" ? false : undefined,
+            changeReason: started.value.lock?.stage === "rebuttal" ? "Holds." : undefined,
+          })
+        : JSON.stringify({
           summary: `${role} view`,
           rationale: "Reasoned from the brief.",
           assumptions: [],
