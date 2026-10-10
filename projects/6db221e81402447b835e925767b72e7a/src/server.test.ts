@@ -7,7 +7,7 @@ const savedKey = process.env.OPENAI_API_KEY;
 afterEach(() => { process.env.OPENAI_API_KEY = savedKey; });
 
 async function call(url: string, payload: unknown) {
-  const req = Object.assign(Readable.from([JSON.stringify(payload)]), { url });
+  const req = Object.assign(Readable.from([JSON.stringify(payload)]), { url, method: "POST" });
   let text = "";
   const res = { statusCode: 200, setHeader() {}, end(value: string) { text = value; } };
   await handleDebateApi(req as never, res as never);
