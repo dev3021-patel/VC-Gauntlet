@@ -224,6 +224,9 @@ export function completeTurn(run: DebateRun, raw: string): DebateResult {
     });
   }
   const { role, stage } = run.lock;
+  if (stage === "verdict_chat") {
+    return failure(run, { code: "wrong_phase", message: "Chair chat is separate from the debate record.", role });
+  }
   if (hasContribution(run, role, stage) && stage !== "founder_response") {
     return failure(run, {
       code: "duplicate",

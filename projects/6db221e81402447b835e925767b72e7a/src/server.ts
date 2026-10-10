@@ -6,8 +6,11 @@ import { generateContribution, readProviderConfig, createOpenAiClient } from "./
 import { generateRedTeamReview, redTeamRequestFromRun } from "./redTeam";
 import { ROLE_INSTRUCTIONS } from "./roles";
 import { registerChair, runChairTurn } from "./chair";
+import { chairChatContextGap, runChairChatTurn, type ChairChatExchange } from "./verdictChat";
 
 const runs = new Map<string, DebateRun>();
+const chairChats = new Map<string, ChairChatExchange[]>();
+const activeChairChats = new Set<string>();
 const registry = createRoleRegistry(ROLE_INSTRUCTIONS);
 registerChair(registry);
 
@@ -38,7 +41,7 @@ function nextRole(run: DebateRun): RoleId | null {
 export async function handleDebateApi(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   if (!req.url?.startsWith("/api/debate/")) return false;
   try {
-    const input = await body(req) as { brief?: unknown; runId?: string; founderMessage?: string; verdict?: boolean };
+    const input = await body(req) as { brief?: unknown; runId?: string; founderMessage?: string; verdict?: boolean; question?: unknown; newEvidence?: unknown };
     if (req.url.startsWith("/api/debate/start")) {
       const brief = validateBrief(input.brief ?? {});
       if (!brief.ok) return send(res, 400, { error: "Invalid idea brief", fields: brief.errors }), true;
@@ -46,6 +49,27 @@ export async function handleDebateApi(req: IncomingMessage, res: ServerResponse)
     }
     const run = input.runId ? runs.get(input.runId) : undefined;
     if (!run) return send(res, 404, { error: "Debate run not found" }), true;
+    if (req.url.split("?")[0] === "/api/debate/verdict-chat") {
+      if (req.method !== "POST") return send(res, 405, { error: "Chair chat requires POST." }), true;
+      const gap = chairChatContextGap(run);
+      if (gap) return send(res, 409, { error: gap }), true;
+      if (typeof input.question !== "string" || !input.question.trim() ||
+          (input.newEvidence !== undefined && typeof input.newEvidence !== "string")) {
+        return send(res, 400, { error: "Enter a question and optional new evidence for the Chair." }), true;
+      }
+      if (activeChairChats.has(run.id)) return send(res, 409, { error: "Wait for the Chair's current answer." }), true;
+      const config = readProviderConfig();
+      if (!config.ok) return send(res, 503, { error: config.error.message }), true;
+      const chatInput = { question: input.question.trim(), newEvidence: (input.newEvidence as string | undefined)?.trim() };
+      activeChairChats.add(run.id);
+      try {
+        const history = chairChats.get(run.id) ?? [];
+        const result = await runChairChatTurn(run, chatInput, createOpenAiClient(config.value), history);
+        if (!result.ok) return send(res, 502, { error: result.error.message }), true;
+        chairChats.set(run.id, [...history, { input: chatInput, reply: result.reply }]);
+        return send(res, 200, { reply: result.reply }), true;
+      } finally { activeChairChats.delete(run.id); }
+    }
     if (req.url.startsWith("/api/debate/founder")) {
       const message = input.founderMessage?.trim();
       if (!message || run.phase !== "founder") return send(res, 400, { error: "Founder discussion is not available yet" }), true;

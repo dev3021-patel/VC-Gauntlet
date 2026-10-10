@@ -17,6 +17,14 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - `SPECIALIST_SCORE_SPECS` exports each field name and native maximum. `getPrimaryScore(envelope)` returns its assessment/rebuttal score or `null` when missing. Import both from `src/index.ts`; fall back to position changes whenever either side lacks a score. Do not invent a numeric fallback or compare different agents' raw scores.
 - Rebuttals carry the revised score. `changed: false` retains the opening score when both Customer/Engineer scores are present; old position-only exchanges remain accepted. Later debate context includes recorded scores with their own scales.
 
+## Chair chat after the verdict
+
+- `verdict_chat` is a Chair-only discussion stage. `runChairChatTurn(run, input, client, history)` uses the full completed run, including every structured envelope and the original verdict. It returns a reply, never a changed run. Other Chair generation remains on the existing verdict adapter.
+- `POST /api/debate/verdict-chat` accepts `runId`, `question`, and optional `newEvidence`; it returns `{reply}`. The reply uses the existing role envelope with stage `verdict_chat`, position `discussion`, and no decision. Premature chats return 409, invalid input 400, missing credentials 503, and invalid/provider output 502.
+- The server stores successful chat exchanges separately and rejects overlapping chat requests with a separate chat lock. No chat input, answer, error, or provisional view is appended to `DebateRun.messages` or alters its phase, failure, lock, verdict, or scores. Chat history is session-memory conversation, not committee evidence.
+- Reply fields pair `sourceMessageIds` with verbatim `sourceArguments` from this run. `notAssessed` requires a `validationTest`; `ownView` receives the explicit Chair's own view label. `newEvidence` requires a provisional change and reason. These are explanatory hypotheses, not replacement verdicts or scores.
+- `ChairConversation` is a standalone UI component keyed by run ID, shown after completion. It retains failed drafts, provides retry, and discards its local conversation when starting a new idea. UI tests use provider/browser fixtures; they are not evidence of live-provider quality.
+
 ## VC Agent
 
 `src/vc.ts` registers the VC persona with `registerVcAgent(registry)` and runs one turn with `runVcTurn(run, client, registry)`. It reuses the shared envelope, `generateContribution`, and `completeTurn`; it does not define a second contract.

@@ -33,6 +33,7 @@ export const CONTRIBUTION_STAGES = [
   "rebuttal",
   "founder_response",
   "verdict",
+  "verdict_chat",
 ] as const;
 
 export type ContributionStage = (typeof CONTRIBUTION_STAGES)[number];
@@ -486,7 +487,11 @@ export function parseContribution(
   let decision: ChairDecision | null = null;
   let vc: VcScorecard | null = null;
   let competitor: CompetitorScorecard | null = null;
-  if (role === "chair") {
+  if (stage === "verdict_chat") {
+    if (role !== "chair" || positionLabel !== "discussion" || record.decision != null) {
+      return invalid("Verdict chat is a Chair discussion and cannot return a new decision.");
+    }
+  } else if (role === "chair") {
     if (stage !== "verdict") return invalid("The Chair only speaks at the verdict.");
     const decisionRecord = asRecord(record.decision);
     if (!decisionRecord) return invalid("The Chair response is missing a decision.");

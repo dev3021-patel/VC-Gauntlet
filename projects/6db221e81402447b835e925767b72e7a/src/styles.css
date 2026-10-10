@@ -152,3 +152,8 @@ dd { margin: 0 0 10px; }
   .layout { grid-template-columns: 1fr; }
 }
 .chair-output { white-space: pre-wrap; overflow-wrap: anywhere; }
+.verdict-chat { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+.verdict-chat h2 { margin-top: 0; }
+.verdict-chat > p { color: var(--muted); }
+.verdict-chat .transcript p { overflow-wrap: anywhere; }
+.verdict-chat button:disabled { opacity: .6; cursor: default; }

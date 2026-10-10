@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { emptyBrief, type IdeaBrief } from "./brief";
 import type { DebateRun } from "./debate";
+import { ChairConversation } from "./ChairConversation";
 
 const fields: Array<{ key: keyof IdeaBrief; label: string; long?: boolean }> = [
   { key: "idea", label: "Startup idea" }, { key: "problem", label: "Problem", long: true },
@@ -39,5 +40,6 @@ export function App() {
         {message.envelope?.assumptions?.map((claim, i) => <small key={i}>{claim.grounding}: {claim.statement}</small>)}</li>)}</ol>
       {run.phase === "founder" ? <div className="founder"><label>Question or evidence<textarea value={question} onChange={(e) => setQuestion(e.target.value)} /></label><button disabled={busy || !question.trim()} onClick={() => { void call("/api/debate/founder", { runId: run.id, founderMessage: question }); setQuestion(""); }}>Add to discussion</button><button disabled={busy} onClick={() => void call("/api/debate/verdict", { runId: run.id })}>Request verdict</button></div> : null}
       {run.phase !== "founder" && run.phase !== "complete" ? <button disabled={busy} onClick={() => void call("/api/debate/advance", { runId: run.id })}>{busy ? "Generating…" : run.phase === "verdict" ? "Generate Chair verdict" : "Generate next contribution"}</button> : null}
+      {run.phase === "complete" ? <ChairConversation key={run.id} runId={run.id} /> : null}
     </section>}</main>;
 }
