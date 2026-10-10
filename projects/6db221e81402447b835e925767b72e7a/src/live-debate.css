@@ -1,0 +1,159 @@
+:root {
+  color-scheme: light;
+  --ink: #1c1612;
+  --muted: #5c5148;
+  --paper: #f6f1e8;
+  --card: #fffaf3;
+  --line: #d9cfc2;
+  --accent: #8c3a22;
+  --waiting: #6b4f2a;
+  --ready: #1f4d3a;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, #efe4d4, transparent 36%),
+    var(--paper);
+  color: var(--ink);
+}
+
+.shell {
+  width: min(1080px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 64px;
+}
+
+.masthead h1 {
+  margin: 0;
+  font-family: Palatino, "Iowan Old Style", Georgia, serif;
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+}
+
+.eyebrow, .meta, .lede { color: var(--muted); }
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lede { max-width: 62ch; font-size: 1.05rem; }
+
+.status, .brief, .contract {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 20px;
+}
+
+.status { margin: 28px 0; }
+
+.badge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.badge.waiting { background: #f3e4cc; color: var(--waiting); }
+.badge.ready { background: #dcecdf; color: var(--ready); }
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.3fr 0.7fr;
+  gap: 18px;
+}
+
+.debate { display: grid; gap: 1rem; max-width: 860px; }
+.debate-head { display: flex; align-items: center; justify-content: space-between; }
+.transcript { display: grid; gap: .75rem; padding: 0; list-style: none; }
+.transcript li { background: #fff; border: 1px solid #d8dbe6; border-radius: .75rem; padding: 1rem; }
+.transcript strong { text-transform: capitalize; margin-right: .6rem; }
+.transcript span, .transcript small { color: #596176; display: block; }
+.founder { display: grid; gap: .75rem; }
+.trail, .decision { background: #f3f5fb; border-radius: .4rem; padding: .5rem; }
+.failure { border-left: 4px solid #b42318; padding-left: .75rem; color: #8f1d14; }
+
+form label, .contract li {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+label span, dt { font-weight: 700; }
+
+input, textarea, button {
+  font: inherit;
+  color: inherit;
+}
+
+input, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+
+textarea { min-height: 96px; resize: vertical; }
+
+input[aria-invalid="true"], textarea[aria-invalid="true"] {
+  border-color: var(--accent);
+}
+
+.errors {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-left: 4px solid var(--accent);
+  background: #f8ebe6;
+}
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+button {
+  min-height: 44px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 18px;
+  background: var(--ink);
+  color: #fffaf3;
+  cursor: pointer;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--ink);
+}
+
+.contract ol { margin: 0; padding-left: 18px; }
+.contract li span { color: var(--muted); font-weight: 400; }
+
+.receipt {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+dl { margin: 0; }
+dd { margin: 0 0 10px; }
+
+@media (max-width: 800px) {
+  .shell { width: min(100% - 24px, 1080px); padding-top: 20px; }
+  .layout { grid-template-columns: 1fr; }
+}
+.chair-output { white-space: pre-wrap; overflow-wrap: anywhere; }
+.verdict-chat { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+.verdict-chat h2 { margin-top: 0; }
+.verdict-chat > p { color: var(--muted); }
+.verdict-chat .transcript p { overflow-wrap: anywhere; }
+.verdict-chat button:disabled { opacity: .6; cursor: default; }
