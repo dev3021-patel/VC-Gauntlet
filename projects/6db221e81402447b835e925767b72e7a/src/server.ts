@@ -3,6 +3,7 @@ import { validateBrief } from "./brief";
 import { SPECIALIST_ROLES, createRoleRegistry, type RoleId } from "./contract";
 import { beginTurn, completeTurn, createRun, failTurn, requestVerdict, retryTurn, type DebateRun } from "./debate";
 import { generateContribution, readProviderConfig, createOpenAiClient } from "./provider";
+import { generateRedTeamReview, redTeamRequestFromRun } from "./redTeam";
 import { ROLE_INSTRUCTIONS } from "./roles";
 import { registerChair, runChairTurn } from "./chair";
 
@@ -73,12 +74,15 @@ export async function handleDebateApi(req: IncomingMessage, res: ServerResponse)
     const started = beginTurn(current, role); if (!started.ok) return send(res, 409, { error: started.error.message, run: started.value }), true;
     storeRun(started.value);
     const config = readProviderConfig(); if (!config.ok) { const failed = failTurn(started.value, config.error); storeRun(failed); return send(res, 503, { error: config.error.message, run: failed }), true; }
+    const client = createOpenAiClient(config.value);
     if (role === "chair") {
-      const completed = await runChairTurn(current, createOpenAiClient(config.value), registry);
+      const completed = await runChairTurn(current, client, registry);
       storeRun(completed.value);
       return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;
     }
-    const generated = await generateContribution(started.value, role, started.value.lock!.stage, registry, createOpenAiClient(config.value));
+    const generated = role === "red_team"
+      ? await generateRedTeamReview(redTeamRequestFromRun(started.value), client, registry)
+      : await generateContribution(started.value, role, started.value.lock!.stage, registry, client);
     if (!generated.ok) { const failed = failTurn(started.value, generated.error); storeRun(failed); return send(res, 502, { error: generated.error.message, run: failed }), true; }
     const completed = completeTurn(started.value, generated.raw); storeRun(completed.value);
     return send(res, completed.ok ? 200 : 502, completed.ok ? { run: completed.value } : { error: completed.error.message, run: completed.value }), true;

@@ -397,11 +397,12 @@ export function parseContribution(
   if (role === "red_team" && stage === "challenge") {
     const targeted = fields.targetedRoles;
     const questions = fields.questions;
-    if (!Array.isArray(targeted) || targeted.length === 0) {
-      return invalid("Red Team must name the roles it is challenging.");
-    }
+    const partial = fields.reviewComplete === false;
     if (!Array.isArray(questions) || questions.length === 0) {
       return invalid("Red Team must ask targeted questions.");
+    }
+    if (!Array.isArray(targeted) || (targeted.length === 0 && !partial)) {
+      return invalid("Red Team must name the roles it is challenging.");
     }
   }
 
