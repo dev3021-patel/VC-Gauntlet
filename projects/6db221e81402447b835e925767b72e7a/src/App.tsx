@@ -3,33 +3,43 @@ import { emptyBrief, type IdeaBrief } from "./brief";
 import type { CompetitorScorecard } from "./contract";
 import type { DebateRun } from "./debate";
 
+const LEVELS = ["HIGH", "MEDIUM", "LOW", "STRONG", "WEAK", "NONE"];
+const PLAIN_LEVEL: Record<string, string> = {
+  HIGH: "High",
+  MEDIUM: "Medium",
+  LOW: "Low",
+  STRONG: "Strong",
+  WEAK: "Weak",
+  NONE: "None",
+};
+
 function CompetitorCard({ card }: { card: CompetitorScorecard }) {
   const rows: Array<[string, string, string?]> = [
-    ["Incumbent I represent", card.incumbent],
-    ["Existing alternatives", card.existingAlternatives.join("; ")],
-    ["Customer lock-in advantage", card.customerLockIn, card.customerLockInReason],
-    ["How I would crush it", card.crushPlan],
-    ["Copyability risk", card.copyabilityRisk, card.copyabilityReason],
-    ["Moat strength", card.moatStrength, card.moatReason],
-    ["Why their moat is weak", card.weakMoat],
-    ["Distribution disadvantage", card.distributionDisadvantage],
-    ["Pricing pressure", card.pricingPressure, card.pricingReason],
-    ["Feature vs. company risk", card.featureRisk, card.featureReason],
-    ["What would make them dangerous", card.dangerousMove],
-    ["Founder question", card.founderQuestion],
-    ["Competitor verdict", card.verdict],
+    ["Who would copy this", card.incumbent],
+    ["What people use today", card.existingAlternatives.join("; ")],
+    ["How stuck customers already are", card.customerLockIn, card.customerLockInReason],
+    ["How a bigger company would beat this", card.crushPlan],
+    ["How easy this is to copy", card.copyabilityRisk, card.copyabilityReason],
+    ["How hard this is to replace", card.moatStrength, card.moatReason],
+    ["Biggest protection gap", card.weakMoat],
+    ["Why a bigger company reaches customers first", card.distributionDisadvantage],
+    ["Could this be given away free?", card.pricingPressure, card.pricingReason],
+    ["Feature, or a real company?", card.featureRisk, card.featureReason],
+    ["What would actually worry a bigger company", card.dangerousMove],
+    ["Question the founder must answer", card.founderQuestion],
+    ["Bottom line", card.verdict],
   ];
   return (
     <section className="competitor-card" aria-label="Competitor agent output">
-      <p className="score-line">Competitor threat score: {card.threatScore}/10</p>
-      <p className="meta">How threatening this startup is to existing competitors.</p>
+      <p className="score-line">How much this worries existing companies: {card.threatScore}/10</p>
+      <p className="meta">A higher score means a bigger company is more likely to notice and react. “How hard this is to replace” is what stops them from copying the product and taking the customers.</p>
       <dl>
         {rows.map(([label, value, detail]) => (
           <div key={label}>
             <dt>{label}</dt>
             <dd>
-              {["HIGH", "MEDIUM", "LOW", "STRONG", "WEAK", "NONE"].includes(value) ? <span className="level">{value}</span> : null}
-              {detail ? <span>{detail}</span> : ["HIGH", "MEDIUM", "LOW", "STRONG", "WEAK", "NONE"].includes(value) ? null : <span>{value}</span>}
+              {LEVELS.includes(value) ? <span className="level">{PLAIN_LEVEL[value]}</span> : null}
+              {detail ? <span>{detail}</span> : LEVELS.includes(value) ? null : <span>{value}</span>}
             </dd>
           </div>
         ))}
