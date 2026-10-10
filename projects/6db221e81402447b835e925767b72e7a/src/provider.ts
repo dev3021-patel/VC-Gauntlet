@@ -139,6 +139,7 @@ export function buildGenerationPrompt(
   role: RoleId,
   stage: ContributionStage,
   registry: RoleRegistry,
+  appendix = "",
 ): { ok: true; system: string; user: string } | { ok: false; error: ContractError } {
   const instructions = registry.instructions(role);
   if (!instructions) {
@@ -154,7 +155,7 @@ export function buildGenerationPrompt(
   return {
     ok: true,
     system: `${instructions}\n\n${ENVELOPE_INSTRUCTIONS}`,
-    user: `Role: ${role}\nStage: ${stage}\n\n${context}\n\nRespond only to this brief and the discussion so far.`,
+    user: `Role: ${role}\nStage: ${stage}\n\n${context}${appendix.trim() ? `\n\n${appendix.trim()}` : ""}\n\nRespond only to this brief and the discussion so far.`,
   };
 }
 
@@ -164,8 +165,9 @@ export async function generateContribution(
   stage: ContributionStage,
   registry: RoleRegistry,
   client: ModelClient | null,
+  appendix = "",
 ): Promise<{ ok: true; raw: string } | { ok: false; error: ContractError }> {
-  const prompt = buildGenerationPrompt(run, role, stage, registry);
+  const prompt = buildGenerationPrompt(run, role, stage, registry, appendix);
   if (!prompt.ok) return prompt;
   if (!client) {
     const status = providerStatus();

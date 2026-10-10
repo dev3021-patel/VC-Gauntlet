@@ -151,3 +151,4 @@ dd { margin: 0 0 10px; }
   .shell { width: min(100% - 24px, 1080px); padding-top: 20px; }
   .layout { grid-template-columns: 1fr; }
 }
+.chair-output { white-space: pre-wrap; overflow-wrap: anywhere; }
