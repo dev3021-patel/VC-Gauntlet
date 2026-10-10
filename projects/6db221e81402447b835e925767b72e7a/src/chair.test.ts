@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { Readable } from "node:stream";
+import { describe, expect, it, vi } from "vitest";
+import { handleDebateApi, storeRun } from "./server";
 import { validateBrief, type IdeaBrief } from "./brief";
 import {
   SPECIALIST_ROLES,
@@ -209,6 +211,44 @@ describe("Chair registration and mapping", () => {
     expect(chairVerdictFromVcPosition("INVEST")).toBeNull();
     expect(chairVerdictFromScores([9, 9, 9, 9])).toBeNull();
   });
+});
+
+describe("Chair API integration", () => {
+  for (const valid of [true, false]) {
+    it(valid ? "renders the exact Chair format through the verdict endpoint" : "rejects legacy Chair output through the verdict endpoint", async () => {
+      const run = { ...ready(), phase: "founder" as const, verdictRequested: false };
+      storeRun(run);
+      const raw = valid
+        ? payload("KILL", { fields: { finalNote: "Stop. Do not build this wedge." } })
+        : JSON.stringify({ summary: "Generic pass", rationale: "Do not proceed", positionLabel: "pass", fields: {}, decision: { verdict: "pass" } });
+      const provider = vi.fn(async () => new Response(JSON.stringify({ choices: [{ message: { content: raw } }] }), { status: 200 }));
+      vi.stubEnv("OPENAI_API_KEY", "test-only-key");
+      vi.stubGlobal("fetch", provider);
+      try {
+        const req = Object.assign(Readable.from([JSON.stringify({ runId: run.id })]), { url: "/api/debate/verdict" });
+        let responseBody = "";
+        const res = { statusCode: 200, setHeader() {}, end(value: string) { responseBody = value; } };
+        await handleDebateApi(req as never, res as never);
+        const response = JSON.parse(responseBody) as { run: DebateRun };
+        expect(provider).toHaveBeenCalledTimes(1);
+        expect(res.statusCode).toBe(valid ? 200 : 502);
+        expect(response.run.lock).toBeNull();
+        expect(response.run.messages.slice(0, run.messages.length)).toEqual(run.messages);
+        if (valid) {
+          expect(response.run.phase).toBe("complete");
+          expect(response.run.messages.at(-1)?.body).toContain("FINAL VERDICT: KILL");
+          expect(response.run.messages.at(-1)?.envelope?.fields.displayVerdict).toBe("KILL");
+          expect(response.run.messages.at(-1)?.envelope?.decision?.verdict).toBe("pass");
+        } else {
+          expect(response.run.failure?.code).toBe("invalid_response");
+          expect(response.run.messages).toHaveLength(run.messages.length);
+        }
+      } finally {
+        vi.unstubAllEnvs();
+        vi.unstubAllGlobals();
+      }
+    });
+  }
 });
 
 describe("Chair verdicts", () => {
