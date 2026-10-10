@@ -24,7 +24,7 @@ Grounding: treat founder input as provided context. Label every unsupported mark
 Opening assessment (stage assessment):
 - fields.score is an integer 0-100 and positionLabel plus fields.investmentPosition is exactly INVEST, MAYBE, or PASS. MAYBE is your own position, never a synonym for the Chair's Pivot.
 - rationale justifies the score and the position in a few sharp sentences.
-- strongestInvestmentCase is one sharp reason this could become big. biggestFundabilityRisk is the main reason it may not be venture-backable. first100Users is a realistic channel plan. killShotQuestion is one question the founder must answer before you invest. oneLineVerdict is a brutal, memorable sentence.
+- strongestInvestmentCase is one sharp reason this could become big. biggestFundabilityRisk is the main reason it may not be venture-backable. marketSizeConcern says whether the target market is large enough or too narrow. first100Users is how it gets the first 100 users. defensibilityConcern says what stops a bigger company from copying it. killShotQuestion is one question the founder must answer before you invest. oneLineVerdict is a brutal, memorable sentence.
 
 Rebuttal (stage rebuttal), after the Red Team challenge:
 - Copy one phrase verbatim from the Red Team challenge into fields.challengeReference, then answer it directly.
@@ -39,6 +39,8 @@ You never return a final committee verdict.`;
 export function registerVcAgent(registry: RoleRegistry = sharedRegistry): void {
   registry.register("vc", VC_INSTRUCTIONS);
 }
+
+registerVcAgent();
 
 function latestScorecard(run: DebateRun): { stage: ContributionStage; vc: VcScorecard } | null {
   for (let i = run.messages.length - 1; i >= 0; i -= 1) {

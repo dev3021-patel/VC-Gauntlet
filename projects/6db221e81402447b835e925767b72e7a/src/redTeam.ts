@@ -671,7 +671,7 @@ export async function generateRedTeamReview(
   return { ok: true, raw: written.raw, presentation: written.presentation };
 }
 
-function requestFromRun(run: DebateRun): RedTeamRequest {
+export function redTeamRequestFromRun(run: DebateRun): RedTeamRequest {
   const assessments = run.messages
     .map(assessmentFromMessage)
     .filter((source): source is AssessmentSource => source !== null);
@@ -693,7 +693,7 @@ export async function runRedTeamTurn(
   const started = beginTurn(run, "red_team");
   if (!started.ok || !started.value.lock) return started;
   const locked = started.value;
-  const generated = await generateRedTeamReview(requestFromRun(locked), client, registry);
+  const generated = await generateRedTeamReview(redTeamRequestFromRun(locked), client, registry);
   if (!generated.ok) {
     const error = {
       code: generated.error.code,
