@@ -80,17 +80,4 @@ jobs:
           done
           curl -fsS "$APP_URL/" -o /tmp/index.html
           grep -q '<div id="root">' /tmp/index.html
-          python3 - << 'PY'
-          import json, urllib.request
-          base = "https://venture-gauntlet-production.up.railway.app"
-          status = json.load(open("/tmp/status.json"))
-          assert "configured" in status
-          assert "apiKey" not in json.dumps(status)
-          body = json.dumps({"brief": {"idea": "Clinic intake copilot", "problem": "Phone tag wastes booked visits.", "targetCustomer": "Independent clinic managers", "solution": "An assistant books incoming calls.", "businessModel": "Monthly subscription per clinic"}}).encode()
-          req = urllib.request.Request(base + "/api/debate/start", data=body, headers={"content-type": "application/json"})
-          with urllib.request.urlopen(req) as resp:
-              started = json.load(resp)
-          assert started["run"]["id"]
-          print("provider_configured", bool(status.get("configured")))
-          print("debate_start", "ok")
-          PY
+          python3 -c 'import json,urllib.request; base="https://venture-gauntlet-production.up.railway.app"; status=json.load(open("/tmp/status.json")); assert "configured" in status; assert "apiKey" not in json.dumps(status); body=json.dumps({"brief":{"idea":"Clinic intake copilot","problem":"Phone tag wastes booked visits.","targetCustomer":"Independent clinic managers","solution":"An assistant books incoming calls.","businessModel":"Monthly subscription per clinic"}}).encode(); req=urllib.request.Request(base+"/api/debate/start", data=body, headers={"content-type":"application/json"}); started=json.load(urllib.request.urlopen(req)); assert started["run"]["id"]; print("provider_configured", bool(status.get("configured"))); print("debate_start", "ok")'
