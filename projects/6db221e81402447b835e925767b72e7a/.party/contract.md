@@ -10,6 +10,13 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - `OPENAI_BASE_URL` and `GAUNTLET_MODEL` are optional. The default model name is `gpt-4o-mini`.
 - Debate order lives in `src/debate.ts`: assessments, Red Team challenge, rebuttals, founder pause, explicit verdict request, Chair. Retry clears a failure without deleting successful messages.
 
+## Specialist scores for UI adapters
+
+- Assessment and rebuttal fields are VC `score` (0–100), Competitor `threatScore` (0–10), Customer `adoptionScore` (0–10), and Engineer `feasibilityScore` (0–10). All scores are integers. Customer adoption measures likelihood of adopting **and paying**; Engineer feasibility measures buildability. Higher Competitor scores mean a greater threat to the incumbent, not greater competitive risk for the startup.
+- New generation requests Customer and Engineer scores alongside `positionLabel`. Supplied scores are validated; missing new scores remain valid for older responses. Schema version 1, positions, and existing role fields remain unchanged.
+- `SPECIALIST_SCORE_SPECS` exports each field name and native maximum. `getPrimaryScore(envelope)` returns its assessment/rebuttal score or `null` when missing. Import both from `src/index.ts`; fall back to position changes whenever either side lacks a score. Do not invent a numeric fallback or compare different agents' raw scores.
+- Rebuttals carry the revised score. `changed: false` retains the opening score when both Customer/Engineer scores are present; old position-only exchanges remain accepted. Later debate context includes recorded scores with their own scales.
+
 ## VC Agent
 
 `src/vc.ts` registers the VC persona with `registerVcAgent(registry)` and runs one turn with `runVcTurn(run, client, registry)`. It reuses the shared envelope, `generateContribution`, and `completeTurn`; it does not define a second contract.

@@ -130,6 +130,9 @@ Do not include citations or sources keys.
 Label unsupported market, demand, and competitor claims as assumption or unknown.
 VC assessments and rebuttals must set positionLabel to INVEST, MAYBE, or PASS and fields.score to an integer from 0 to 100, plus strongestInvestmentCase, biggestFundabilityRisk, marketSizeConcern, first100Users, defensibilityConcern, killShotQuestion, and oneLineVerdict. first100Users is the distribution question. MAYBE is not Pivot. A founder reply answers the question and does not change the investment position.
 Competitor assessments and rebuttals must set positionLabel and fields.stance to NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE, and fields.threatScore to an integer from 0 to 10, plus incumbent, crushPlan, weakMoat, copyabilityRisk, distributionDisadvantage, dangerousMove, founderQuestion, and verdict. That stance is not a Chair verdict.
+Customer assessments and rebuttals must include fields.adoptionScore, an integer from 0 to 10 measuring the likelihood the target customer adopts AND pays, alongside the existing positionLabel and supporting fields.
+Engineer assessments and rebuttals must include fields.feasibilityScore, an integer from 0 to 10 measuring buildability, alongside the existing positionLabel and supporting fields.
+For Customer and Engineer rebuttals, return the revised score and justify it in rationale and changeReason. When changed is false, retain the opening score. These scores are not Chair verdicts.
 Red Team challenges must set fields.targetedRoles and fields.questions to string arrays.
 Rebuttals must set changed to a boolean and changeReason to a string.
 Only the Chair returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair positionLabel must match that verdict.`;

@@ -1,6 +1,8 @@
 import type { IdeaBrief } from "./brief";
 import {
   SPECIALIST_ROLES,
+  SPECIALIST_SCORE_SPECS,
+  getPrimaryScore,
   isSpecialist,
   parseContribution,
   type ContributionStage,
@@ -240,6 +242,20 @@ export function completeTurn(run: DebateRun, raw: string): DebateResult {
     };
     return { ok: false, error, value: failTurn(run, error) };
   }
+  if (stage === "rebuttal" && (role === "customer" || role === "engineer")) {
+    const opening = run.messages.find((item) => item.speaker === role && item.stage === "assessment");
+    const initial = opening?.envelope ? getPrimaryScore(opening.envelope) : null;
+    const revised = getPrimaryScore(parsed.value);
+    if (initial !== null && revised !== null && parsed.value.changed === false && initial !== revised) {
+      const error: DebateFailure = {
+        code: "invalid_response",
+        message: "An unchanged recommendation must retain its opening score.",
+        phase: run.phase,
+        role,
+      };
+      return { ok: false, error, value: failTurn(run, error) };
+    }
+  }
   if (stage === "challenge") {
     const targeted = parsed.value.fields.targetedRoles;
     const assessments = new Set(
@@ -406,6 +422,13 @@ export function renderContext(context: DebateContext): string {
     lines.push(`[${message.stage}] ${message.speaker}: ${message.body}`);
     if (message.envelope?.positionLabel) {
       lines.push(`Position: ${message.envelope.positionLabel}`);
+    }
+    if (message.envelope && isSpecialist(message.envelope.role)) {
+      const score = getPrimaryScore(message.envelope);
+      if (score !== null) {
+        const { field, max } = SPECIALIST_SCORE_SPECS[message.envelope.role];
+        lines.push(`Primary score (${field}): ${score}/${max}`);
+      }
     }
     for (const claim of message.envelope?.assumptions ?? []) {
       lines.push(`Claim (${claim.grounding}): ${claim.statement}`);
