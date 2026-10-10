@@ -1,3 +1,7 @@
 {
-  "commands": [["node", "--version"]]
+  "commands": [
+    ["npm", "ci"],
+    ["npm", "test"],
+    ["npm", "run", "build"]
+  ]
 }
