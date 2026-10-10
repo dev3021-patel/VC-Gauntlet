@@ -116,3 +116,30 @@ it("reads each specialist's native scale and excludes non-scoring roles and stag
   expect(getPrimaryScore({ role: "chair", stage: "verdict", fields: { score: 90 } })).toBeNull();
   expect(getPrimaryScore({ role: "red_team", stage: "challenge", fields: { score: 9 } })).toBeNull();
 });
+
+describe.each(["customer", "engineer"] as const)("%s recommendation consistency", (role) => {
+  it("rejects unchanged score with a changed position, and changed=true with identical scored recommendations", () => {
+    const field = SPECIALIST_SCORE_SPECS[role].field;
+    const start = beginTurn(createRun(emptyBrief()), role);
+    if (!start.ok) throw new Error(start.error.message);
+    const opening = completeTurn(start.value, response(field, 8));
+    const rebuttal = beginTurn({ ...opening.value, phase: "rebuttals" }, role);
+    if (!rebuttal.ok) throw new Error(rebuttal.error.message);
+    expect(completeTurn(rebuttal.value, response(field, 8, true)).ok).toBe(false);
+    const changedPosition = JSON.parse(response(field, 8)); changedPosition.positionLabel = "enthusiastic";
+    expect(completeTurn(rebuttal.value, JSON.stringify(changedPosition)).ok).toBe(false);
+  });
+
+  it("rejects a founder reply that silently changes the score or position", () => {
+    const field = SPECIALIST_SCORE_SPECS[role].field;
+    const start = beginTurn(createRun(emptyBrief()), role);
+    if (!start.ok) throw new Error(start.error.message);
+    const opening = completeTurn(start.value, response(field, 8));
+    const founder = beginTurn({ ...opening.value, phase: "founder" }, role);
+    if (!founder.ok) throw new Error(founder.error.message);
+    expect(completeTurn(founder.value, response(field, 9)).ok).toBe(false);
+    const changedPosition = JSON.parse(response(field, undefined)); changedPosition.positionLabel = "enthusiastic";
+    expect(completeTurn(founder.value, JSON.stringify(changedPosition)).ok).toBe(false);
+    expect(completeTurn(founder.value, response(field, undefined)).ok).toBe(true);
+  });
+});

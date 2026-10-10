@@ -136,7 +136,7 @@ Engineer assessments and rebuttals must include fields.feasibilityScore, an inte
 For Customer and Engineer rebuttals, return the revised score and justify it in rationale and changeReason. When changed is false, retain the opening score. These scores are not Chair verdicts.
 Red Team challenges must set fields.targetedRoles and fields.questions to string arrays.
 Rebuttals must set changed to a boolean and changeReason to a string.
-Only the Chair returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair positionLabel must match that verdict.`;
+Only the Chair in stage verdict returns decision: { verdict, decisiveReasons, disagreements, unresolvedRisks, nextSteps, pivotDirection? } with verdict invest, pivot, or pass. Pivot requires pivotDirection. The Chair verdict positionLabel must match that verdict. In verdict_chat, return positionLabel discussion and no decision.`;
 
 const ASSESSMENT_REPORT_INSTRUCTIONS = `Keep the assessment report inside the existing role envelope. Do not add a report key, fields.report, or a separate top-level output structure.
 Use rationale as a string containing 2-4 short points, separated by newlines and prefixed with "- ". Explain why the score and position follow from the brief; keep each point to one concrete sentence, like the concise scorecard fields.
@@ -161,7 +161,9 @@ export function buildGenerationPrompt(
       },
     };
   }
-  const context = renderContext(contextSnapshot(run));
+  const snapshot = contextSnapshot(run);
+  if (isSpecialist(role) && stage === "assessment") snapshot.messages = [];
+  const context = renderContext(snapshot);
   return {
     ok: true,
     system: `${instructions}\n\n${ENVELOPE_INSTRUCTIONS}${isSpecialist(role) && stage === "assessment" ? `\n\n${ASSESSMENT_REPORT_INSTRUCTIONS}` : ""}`,

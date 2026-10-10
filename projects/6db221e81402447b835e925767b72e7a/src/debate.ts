@@ -67,8 +67,6 @@ export type DebateResult =
   | { ok: true; value: DebateRun }
   | { ok: false; error: DebateFailure; value: DebateRun };
 
-const REQUIRED_PHASES: Phase[] = ["assessments", "challenge", "rebuttals"];
-
 function failure(
   run: DebateRun,
   error: DebateFailure,
@@ -249,13 +247,27 @@ export function completeTurn(run: DebateRun, raw: string): DebateResult {
     const opening = run.messages.find((item) => item.speaker === role && item.stage === "assessment");
     const initial = opening?.envelope ? getPrimaryScore(opening.envelope) : null;
     const revised = getPrimaryScore(parsed.value);
-    if (initial !== null && revised !== null && parsed.value.changed === false && initial !== revised) {
+    const positionDiffers = opening?.envelope && opening.envelope.positionLabel !== parsed.value.positionLabel;
+    const scoreDiffers = initial !== null && revised !== null && initial !== revised;
+    if ((parsed.value.changed === false && (positionDiffers || scoreDiffers)) ||
+        (initial !== null && revised !== null && parsed.value.changed !== !!(positionDiffers || scoreDiffers))) {
       const error: DebateFailure = {
         code: "invalid_response",
-        message: "An unchanged recommendation must retain its opening score.",
+        message: "The revised score and position must agree with the changed flag.",
         phase: run.phase,
         role,
       };
+      return { ok: false, error, value: failTurn(run, error) };
+    }
+  }
+  if (stage === "founder_response" && isSpecialist(role)) {
+    const latest = [...run.messages].reverse().find((item) => item.speaker === role && item.envelope);
+    const field = SPECIALIST_SCORE_SPECS[role].field;
+    const scored = [...run.messages].reverse().find((item) => item.speaker === role &&
+      item.envelope && getPrimaryScore(item.envelope) !== null);
+    if ((latest?.envelope && latest.envelope.positionLabel !== parsed.value.positionLabel) ||
+        (field in parsed.value.fields && parsed.value.fields[field] !== scored?.envelope?.fields[field])) {
+      const error: DebateFailure = { code: "invalid_response", message: "A founder response cannot revise the specialist's score or position.", phase: run.phase, role };
       return { ok: false, error, value: failTurn(run, error) };
     }
   }
@@ -346,7 +358,7 @@ export function addFounderInput(run: DebateRun, text: string): DebateResult {
       phase: run.phase,
     });
   }
-  if (run.failure && REQUIRED_PHASES.includes(run.phase)) {
+  if (run.failure) {
     return failure(run, {
       code: "incomplete",
       message: "Resolve the failed step before continuing.",
@@ -388,10 +400,10 @@ export function requestVerdict(run: DebateRun): DebateResult {
       phase: run.phase,
     });
   }
-  if (run.failure && run.failure.phase && REQUIRED_PHASES.includes(run.failure.phase)) {
+  if (run.failure) {
     return failure(run, {
       code: "incomplete",
-      message: "A failed required stage cannot produce a verdict.",
+      message: "Retry the failed contribution before requesting a verdict.",
       phase: run.phase,
     });
   }
@@ -422,7 +434,7 @@ export function renderContext(context: DebateContext): string {
   lines.push("", "DISCUSSION SO FAR");
   if (context.messages.length === 0) lines.push("(none)");
   for (const message of context.messages) {
-    lines.push(`[${message.stage}] ${message.speaker}: ${message.body}`);
+    lines.push(`[${message.stage}] ${message.speaker} (source ${message.id}): ${message.body}`);
     if (message.envelope?.positionLabel) {
       lines.push(`Position: ${message.envelope.positionLabel}`);
     }
@@ -441,6 +453,9 @@ export function renderContext(context: DebateContext): string {
     }
     for (const claim of message.envelope?.assumptions ?? []) {
       lines.push(`Claim (${claim.grounding}): ${claim.statement}${claim.evidenceNote ? ` Evidence note: ${claim.evidenceNote}` : ""}`);
+    }
+    if (message.envelope) {
+      lines.push(`Recorded envelope: ${JSON.stringify(message.envelope)}`);
     }
   }
   return lines.join("\n");

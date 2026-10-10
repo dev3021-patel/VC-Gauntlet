@@ -156,7 +156,7 @@ describe("verdict chat API isolation", () => {
     expect(first.body.run).toBeUndefined();
     expect(seen[1]).toContain("Explain the payment concern.");
     expect(run).toEqual(before);
-    const duplicateVerdictReq = Object.assign(Readable.from([JSON.stringify({ runId: run.id })]), { url: "/api/debate/verdict" });
+    const duplicateVerdictReq = Object.assign(Readable.from([JSON.stringify({ runId: run.id })]), { url: "/api/debate/verdict", method: "POST" });
     let output = "";
     const res = { statusCode: 200, setHeader() {}, end(value: string) { output = value; } };
     await handleDebateApi(duplicateVerdictReq as never, res as never);

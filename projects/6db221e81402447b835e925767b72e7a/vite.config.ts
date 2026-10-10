@@ -2,28 +2,17 @@ import react from "@vitejs/plugin-react";
 import { join } from "node:path";
 import type { Plugin } from "vite";
 import { defineConfig } from "vitest/config";
-import { handleDebateApi } from "./src/server";
-import { providerStatus } from "./src/provider";
+import { handleApi } from "./src/server";
 
 function providerStatusPlugin(): Plugin {
   return {
     name: "provider-status",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (req.url?.startsWith("/api/debate/")) { void handleDebateApi(req, res); return; }
-        if (!req.url?.startsWith("/api/provider-status")) {
-          next();
-          return;
-        }
-        const status = providerStatus();
-        res.setHeader("content-type", "application/json");
-        res.end(
-          JSON.stringify({
-            configured: status.configured,
-            model: status.model,
-            message: status.message,
-          }),
-        );
+        void handleApi(req, res).then((handled) => { if (!handled) next(); }).catch(() => {
+          res.statusCode = 500;
+          res.end(JSON.stringify({ error: "The request could not be completed." }));
+        });
       });
     },
   };
@@ -36,7 +25,7 @@ const hmrPort = process.env.VITE_HMR_CLIENT_PORT
 export default defineConfig({
   plugins: [react(), providerStatusPlugin()],
   cacheDir: join(process.env.XDG_CACHE_HOME || "node_modules/.cache", "venture-gauntlet-vite"),
-  build: { outDir: process.env.PARTY_OUTPUT_DIR || "dist" },
+  build: { outDir: join(process.env.PARTY_OUTPUT_DIR || "dist", "client") },
   server: {
     host: "127.0.0.1",
     allowedHosts: true,

@@ -376,8 +376,9 @@ export function normalizeChairPayload(
     }
   } else {
     const excerpt = text(fields.changeExcerpt);
-    const speaker = run.messages.find((message) => message.speaker === source);
-    if (source === "none" || excerpt.length < 8 || !speaker || !speakerText(speaker).toLowerCase().includes(excerpt.toLowerCase())) {
+    const matches = run.messages.some((message) => message.speaker === source &&
+      speakerText(message).toLowerCase().includes(excerpt.toLowerCase()));
+    if (source === "none" || excerpt.length < 8 || !matches) {
       return fail("Debate-change reasoning must quote a supplied contribution.");
     }
   }

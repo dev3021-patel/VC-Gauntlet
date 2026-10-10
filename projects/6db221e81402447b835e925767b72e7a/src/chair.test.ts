@@ -237,7 +237,7 @@ describe("Chair API integration", () => {
       vi.stubEnv("OPENAI_API_KEY", "test-only-key");
       vi.stubGlobal("fetch", provider);
       try {
-        const req = Object.assign(Readable.from([JSON.stringify({ runId: run.id })]), { url: "/api/debate/verdict" });
+        const req = Object.assign(Readable.from([JSON.stringify({ runId: run.id })]), { url: "/api/debate/verdict", method: "POST" });
         let responseBody = "";
         const res = { statusCode: 200, setHeader() {}, end(value: string) { responseBody = value; } };
         await handleDebateApi(req as never, res as never);
@@ -471,5 +471,19 @@ describe("Chair recovery", () => {
     expect(String(parsed.value.fields.displayVerdict)).toBe("PIVOT");
     expect(parsed.value.summary).toContain("FINAL VERDICT: PIVOT");
     expect(parsed.value.summary).not.toContain("MAYBE");
+  });
+});
+
+
+describe("Chair attribution across the full transcript", () => {
+  it("accepts a quoted later rebuttal and rejects a quote assigned to the wrong agent", () => {
+    const run = ready();
+    const rebuttal = run.messages.find((message) => message.speaker === "customer" && message.stage === "rebuttal")!;
+    rebuttal.body = "Customer revised adoption after the payment challenge.";
+    rebuttal.envelope!.summary = rebuttal.body;
+    const raw = payload("PIVOT", { fields: { finalNote: "Sell to clinic groups, not independent managers." }, debateChanged: true, changeSource: "customer", changeExcerpt: "revised adoption after the payment challenge", whatChanged: "The Customer rebuttal changed the conclusion by exposing payment uncertainty." });
+    const result = normalizeChairPayload(run, raw);
+    expect(result.ok, JSON.stringify(result)).toBe(true);
+    expect(normalizeChairPayload(run, raw.replace('"changeSource":"customer"', '"changeSource":"vc"')).ok).toBe(false);
   });
 });

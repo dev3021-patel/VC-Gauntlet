@@ -67,7 +67,7 @@ describe("assessment reports on the existing envelope", () => {
     if (!started.ok) throw new Error(started.error.message);
     const recorded = completeTurn(started.value, JSON.stringify(response));
     if (!recorded.ok) throw new Error(recorded.error.message);
-    const prompt = buildGenerationPrompt(recorded.value, "engineer", "assessment", createRoleRegistry(ROLE_INSTRUCTIONS));
+    const prompt = buildGenerationPrompt(recorded.value, "engineer", "rebuttal", createRoleRegistry(ROLE_INSTRUCTIONS));
     if (!prompt.ok) throw new Error(prompt.error.message);
     expect(prompt.user).toContain(response.rationale);
     expect(prompt.user).toContain(`Biggest risk: ${response.risks[0]}`);

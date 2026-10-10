@@ -24,7 +24,10 @@ export function ChairConversation({ runId }: { runId: string }) {
         body: JSON.stringify({ runId, ...input }), signal: controller.signal,
       });
       const result = await response.json() as { reply?: RoleEnvelope; error?: string };
-      if (!response.ok || !result.reply) throw new Error(result.error || "The Chair could not answer. Try again.");
+      if (!response.ok) throw new Error(typeof result.error === "string" ? result.error : "The Chair could not answer. Try again.");
+      if (!result.reply || result.reply.role !== "chair" || result.reply.stage !== "verdict_chat" || typeof result.reply.summary !== "string" || !result.reply.summary.trim()) {
+        throw new Error("The Chair response was incomplete. Try again.");
+      }
       if (controller.signal.aborted) return;
       setExchanges((previous) => [...previous, { input, reply: result.reply! }]);
       setQuestion("");
@@ -48,8 +51,8 @@ export function ChairConversation({ runId }: { runId: string }) {
       </li>)}
     </ol>
     <form onSubmit={(event) => { event.preventDefault(); void ask(); }}>
-      <label htmlFor="chair-question">Ask the Chair<textarea id="chair-question" required disabled={busy} value={question} onChange={(event) => setQuestion(event.target.value)} /></label>
-      <label htmlFor="chair-evidence">New evidence (optional)<textarea id="chair-evidence" disabled={busy} value={evidence} onChange={(event) => setEvidence(event.target.value)} /></label>
+      <label htmlFor="chair-question">Ask the Chair</label><textarea id="chair-question" required disabled={busy} value={question} onChange={(event) => setQuestion(event.target.value)} />
+      <label htmlFor="chair-evidence">New evidence (optional)</label><textarea id="chair-evidence" disabled={busy} value={evidence} onChange={(event) => setEvidence(event.target.value)} />
       {error ? <p className="failure" role="alert">{error} Your question is saved; you can try again.</p> : null}
       <p role="status">{busy ? "The Chair is reviewing the full debate…" : ""}</p>
       <button disabled={busy || !question.trim()}>{busy ? "Reviewing…" : error ? "Retry question" : "Ask the Chair"}</button>

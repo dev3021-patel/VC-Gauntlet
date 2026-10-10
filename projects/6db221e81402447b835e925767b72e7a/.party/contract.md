@@ -20,7 +20,7 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 ## Assessment reports
 
 - Specialist assessment reports reuse `rationale` (2–4 short newline-separated points), `risks` (biggest risk first), and `assumptions` (existing grounding labels and evidence notes). There is no new report field or top-level structure; role scorecards and schema version 1 stay intact. Historical prose remains accepted.
-- Shared provider instructions apply this concise format to specialist assessments only. Red Team, rebuttal, founder-response, and Chair formats remain unchanged. Recorded assessment reasoning, risks, and claim evidence notes reach subsequent debate context.
+- Shared provider instructions apply this concise format to specialist assessments only. Red Team, rebuttal, founder-response, and Chair formats remain unchanged. Independent opening generation receives only the founder brief. Subsequent debate context includes source message IDs and complete recorded envelopes, preserving assessment reasoning, risks, claim evidence notes, role fields, and revised scores.
 - `AssessmentReport` is a reusable UI component accepting a `RoleEnvelope`. It displays the existing content beside the native score and position, with position-only fallback for missing scores. Import it from `src/AssessmentReport.tsx`; its styles are scoped in `src/assessment-report.css`. It can be reused by the separate five-screen UI work without changing the API contract.
 
 ## Chair chat after the verdict
@@ -58,3 +58,13 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - A substantive challenge must quote an anchor that appears in the cited assessment. Source ids outside the supplied set are rejected. A simulated opinion, a copied-feature claim, a shared sentence, or an unsourced market or payment claim cannot be labeled `supported_evidence`.
 - `fields.reviewComplete` is false when a specialist assessment is missing, and the summary must say the review is not complete. `WHO SHOULD REVISE` cites a supplied position or says no revision is warranted. It does not assign a replacement score or a Chair verdict.
 - Missing credentials, timeouts, provider failures, and invalid output fail without recording a sample critique.
+
+
+## Integrated API and live UI
+
+- `handleApi` is the shared dev/production boundary. Debate endpoints require POST and exact route matches; provider status requires GET. Bad JSON/object shapes return 400, unknown routes 404, and phase/lock conflicts 409 without generating another turn.
+- The API registers the VC and Competitor personas and uses their dedicated adapters. It publishes a run lock before awaiting generation, then records the adapter result once. Adapter/context/provider failures release the lock and retain successful messages.
+- Founder input is added immutably only after lock, phase, and failure checks. Failed founder replies retry the recorded role in the existing founder phase; they never append the founder input again. A pending failure must be resolved before a verdict request. Customer/Engineer scored rebuttals must agree with their changed metadata; founder replies cannot change recorded positions or scores.
+- Chair change attribution scans all messages by the named source, including later rebuttals. Quotes still require a verbatim supplied argument. Verdict chat remains separate and immutable.
+- `RootApp` preserves the approved mock UI in `App` and exposes the real workflow in `LiveDebate`. Live forms show field errors, retain failed drafts, abort abandoned requests, and ignore stale responses. Accepted failed founder messages retry from the transcript and clear the draft on successful recovery.
+- Vitest 5 replaces the affected test toolchain; the full test suite and Node runtime tests exercise integration failures. Browser checks use clearly labeled fixtures unless a real configured model is explicitly exercised.
