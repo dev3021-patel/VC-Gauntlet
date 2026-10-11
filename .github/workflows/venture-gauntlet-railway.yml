@@ -55,9 +55,11 @@ jobs:
         with:
           node-version: "22"
       - name: Refuse a stale main revision
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          git fetch origin main
-          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+          latest="$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)"
+          test "$(git rev-parse HEAD)" = "$latest"
       - name: Confirm the deployment token is present
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
