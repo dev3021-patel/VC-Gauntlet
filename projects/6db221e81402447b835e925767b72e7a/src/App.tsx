@@ -53,7 +53,7 @@ function ScoreBars({ agent }: { agent: AgentView }) {
 
 function Why({ why }: { why: WhyView | null }) {
   if (!why || (!why.report && why.points.length === 0 && !why.risk && why.assumptions.length === 0 && why.changes.length === 0)) return null;
-  return <details className="why"><summary>Why</summary>{why.report && <p className="why-report">{why.report}</p>}{why.points.length > 0 && <ol>{why.points.map((point) => <li key={point}>{point}</li>)}</ol>}{why.risk && <p><b>Biggest risk.</b> {why.risk}</p>}{why.assumptions.length > 0 && <ul>{why.assumptions.map((claim) => <li key={`${claim.grounding}-${claim.statement}`}><span>{claim.grounding.replaceAll("_", " ")}</span>{claim.statement}{claim.evidenceNote ? ` — ${claim.evidenceNote}` : ""}</li>)}</ul>}{why.changes.length > 0 && <div>{why.changes.map((change) => <p key={change}>{change}</p>)}</div>}</details>;
+  return <details className="why"><summary>Why · {why.title}</summary>{why.report && <p className="why-report">{why.report}</p>}{why.points.length > 0 && <ol>{why.points.map((point) => <li key={point}>{point}</li>)}</ol>}{why.risk && <p><b>Biggest risk.</b> {why.risk}</p>}{why.assumptions.length > 0 && <ul>{why.assumptions.map((claim) => <li key={`${claim.grounding}-${claim.statement}`}><span>{claim.grounding.replaceAll("_", " ")}</span>{claim.statement}{claim.evidenceNote ? ` — ${claim.evidenceNote}` : ""}</li>)}</ul>}{why.changes.length > 0 && <div>{why.changes.map((change) => <p key={change}>{change}</p>)}</div>}</details>;
 }
 
 function AgentCard({ agent }: { agent: AgentView }) {
@@ -366,7 +366,7 @@ export function App() {
       </div>
     </section>}
     {screen === 4 && <section className="screen verdict">
-      <div className="verdict-head"><div><p className="kicker">The committee’s decision</p><h1>{view.verdict ?? "Verdict unavailable"}</h1><p>{view.summary ?? "The Chair has not recorded a decision for this run."}</p></div>{view.confidence == null ? <p>Confidence unavailable</p> : <ConfidenceGauge value={view.confidence} />}</div>
+      <div className="verdict-head"><div><p className="kicker">The committee’s decision</p><h1>{view.verdict ?? "Verdict unavailable"}</h1><p>{view.summary ?? "The Chair has not recorded a decision for this run."}</p>{view.fullVerdict && <details className="full-verdict"><summary>Full verdict card</summary><p>{view.fullVerdict}</p></details>}</div>{view.confidence == null ? <p>Confidence unavailable</p> : <ConfidenceGauge value={view.confidence} />}</div>
       <div className="stats">{view.stats.map((stat) => <div key={stat.label}><b>{stat.value}</b><span>{stat.label}</span></div>)}</div>
       <div className="verdict-grid"><section className="radar-card"><h2>Decision geometry</h2>{view.radar ? <Radar values={view.radar} /> : <p>Chair dimension scores are unavailable.</p>}</section><section className="decision-cards">{view.decisionCards.map((card) => <article key={card.title}><h2>{card.title}</h2><p>{card.content}</p></article>)}{view.agents.find((agent) => agent.id === "chair") && <Why why={view.agents.find((agent) => agent.id === "chair")?.why ?? null} />}</section></div>
       <section className="risk-card"><h2>Kill risks to solve</h2>{view.killRisks == null ? <p>Kill risks unavailable.</p> : view.killRisks.map((risk) => <p key={risk}>× {risk}</p>)}</section>

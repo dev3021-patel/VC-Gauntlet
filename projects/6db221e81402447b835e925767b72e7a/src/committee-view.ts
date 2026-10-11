@@ -51,6 +51,8 @@ export type AssumptionView = {
 };
 
 export type WhyView = {
+  /** Which agent's report this is, so repeated toggles on one card stay distinct. */
+  title: string;
   report: string | null;
   points: string[];
   risk: string | null;
@@ -97,6 +99,8 @@ export type CommitteeView = {
   verdict: string | null;
   confidence: number | null;
   summary: string | null;
+  /** The Chair's full formatted verdict card, shown collapsed under the heading. */
+  fullVerdict: string | null;
   radar: Array<{ label: string; value: number; max: number }> | null;
   decisionCards: Array<{ title: string; content: string }>;
   killRisks: string[] | null;
@@ -171,7 +175,8 @@ function pointsFrom(source: RoleEnvelope | undefined, report: string | null, ris
   if (source.role === "chair" && source.decision) {
     source.decision.decisiveReasons.forEach((reason, index) => add(`Decisive reason ${index + 1}`, reason.trim() || null));
   }
-  add("Summary", source.summary.trim() || null);
+  // The Chair's summary is the full formatted verdict card; the verdict screen renders it on its own.
+  if (!(source.role === "chair" && isFormattedVerdict(source))) add("Summary", source.summary.trim() || null);
   return points;
 }
 
@@ -210,7 +215,8 @@ function whyFrom(sources: Array<RoleEnvelope | undefined>): WhyView | null {
   const uniquePoints = [...new Set(points)];
   const assumptions = present.flatMap((source) => source.assumptions.map(claimView).filter((claim): claim is AssumptionView => Boolean(claim)));
   const changes = present.flatMap(changesFrom);
-  return { report, points: uniquePoints, risk, assumptions, changes };
+  const title = [...new Set(present.map((source) => byId[source.role].label))].join(" & ");
+  return { title, report, points: uniquePoints, risk, assumptions, changes };
 }
 
 function movementFor(initialScore: number | null, finalScore: number | null, opening: RoleEnvelope | undefined, rebuttal: RoleEnvelope | undefined): Movement {
@@ -344,11 +350,43 @@ function radarFrom(chair: RoleEnvelope | undefined): CommitteeView["radar"] {
   }));
 }
 
-function decisionCards(decision: ChairDecision | null | undefined): Array<{ title: string; content: string }> {
-  if (!decision) return [];
+const DISPLAY_FOR_SHARED: Record<string, string> = { invest: "GO", pivot: "PIVOT", pass: "KILL" };
+
+/** The founder-facing label: the Chair's GO, PIVOT or KILL, never the shared invest/pivot/pass position. */
+function displayVerdict(chair: RoleEnvelope | undefined): string | null {
+  const decision = chair?.decision;
+  if (!decision) return null;
+  const display = textValue(chair?.fields.displayVerdict);
+  if (display && ["GO", "PIVOT", "KILL"].includes(display.toUpperCase())) return display.toUpperCase();
+  return DISPLAY_FOR_SHARED[decision.verdict] ?? decision.verdict.toUpperCase();
+}
+
+function isFormattedVerdict(chair: RoleEnvelope): boolean {
+  const formatted = textValue(chair.fields.formattedVerdict);
+  const summary = chair.summary.trim();
+  return summary === formatted || /^FINAL VERDICT:/.test(summary);
+}
+
+/** One readable line for the verdict heading; the formatted card is exposed separately. */
+function verdictSummary(chair: RoleEnvelope | undefined): string | null {
+  if (!chair) return null;
+  return textValue(chair.fields.brutalSummary) ?? (isFormattedVerdict(chair) ? textValue(chair.fields.finalNote) : chair.summary.trim() || null);
+}
+
+function fullVerdict(chair: RoleEnvelope | undefined): string | null {
+  if (!chair) return null;
+  return textValue(chair.fields.formattedVerdict) ?? (isFormattedVerdict(chair) ? chair.summary.trim() : null);
+}
+
+function decisionCards(chair: RoleEnvelope | undefined): Array<{ title: string; content: string }> {
+  const decision = chair?.decision;
+  if (!chair || !decision) return [];
+  const display = displayVerdict(chair);
   const cards = [
-    ["Strengths", decision.decisiveReasons.filter(Boolean).join(" · ")],
-    ["Weaknesses", decision.unresolvedRisks.filter(Boolean).join(" · ")],
+    // decisiveReasons argue for the verdict, so on a KILL they are reasons to kill; label them as such.
+    ["Strongest case for the idea", [textValue(chair.fields.strongestArgument), textValue(chair.fields.strongestEvidence)].filter(Boolean).join(" · ")],
+    [display ? `Why the committee says ${display}` : "Decisive reasons", decision.decisiveReasons.filter(Boolean).join(" · ")],
+    ["Unresolved risks", decision.unresolvedRisks.filter(Boolean).join(" · ")],
     ["Biggest disagreement", decision.disagreements.find(Boolean) ?? ""],
     ["Recommended pivot", decision.verdict === "pivot" ? decision.pivotDirection ?? "" : ""],
     ["Next experiment", decision.nextSteps.filter(Boolean).join(" · ")],
@@ -384,8 +422,8 @@ export function toCommitteeView(run: DebateRun | null): CommitteeView {
       initialScore: null,
       finalScore: null,
       scale: 0,
-      initialPosition: decision ? decision.verdict.toUpperCase() : null,
-      finalPosition: decision ? decision.verdict.toUpperCase() : null,
+      initialPosition: displayVerdict(chair),
+      finalPosition: displayVerdict(chair),
       delta: null,
       reason: null,
       status: statusFor(active, "chair", chairComplete),
@@ -419,11 +457,12 @@ export function toCommitteeView(run: DebateRun | null): CommitteeView {
       { label: "Can incumbents copy this?", target: byId.competitor },
       { label: "Can this actually be built?", target: byId.engineer },
     ],
-    verdict: decision ? decision.verdict.toUpperCase() : null,
+    verdict: displayVerdict(chair),
     confidence: numberValue(chair, "confidence"),
-    summary: chair?.summary ?? null,
+    summary: verdictSummary(chair),
+    fullVerdict: fullVerdict(chair),
     radar: radarFrom(chair),
-    decisionCards: decisionCards(decision),
+    decisionCards: decisionCards(chair),
     killRisks: chair && Array.isArray(chair.fields.killRisks) ? stringList(chair.fields.killRisks) : null,
     stats: [
       { label: "Model calls", value: String(active.messages.filter((message) => message.envelope).length) },

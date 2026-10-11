@@ -200,3 +200,59 @@ describe("committee view adapter", () => {
     expect(view.agents.find((agent) => agent.id === "red_team")?.status).toBe("failed");
   });
 });
+
+describe("verdict screen content", () => {
+  const formatted = "FINAL VERDICT: KILL\n\nINVESTMENT CONFIDENCE: 40%\n\nBRUTAL ONE-LINE SUMMARY:\nA niche solution with weak defensibility.";
+  function chairRun(fields: RoleEnvelope["fields"], summary = formatted) {
+    return run({
+      phase: "complete",
+      messages: [{
+        id: "c1", speaker: "chair", stage: "verdict", body: summary, createdAt: "2026-10-11T00:00:00.000Z",
+        envelope: envelope("chair", "verdict", fields, {
+          positionLabel: "pass",
+          summary,
+          decision: { verdict: "pass", decisiveReasons: ["The market is too niche.", "Incumbents can copy it."], disagreements: ["VC passed while Customer stayed at MAYBE"], unresolvedRisks: ["Willingness to pay is unproven."], nextSteps: ["Within 7 days, ask founders to book."] },
+        }),
+      }],
+    });
+  }
+  const fields = { displayVerdict: "KILL", confidence: 40, brutalSummary: "A niche solution with weak defensibility.", strongestArgument: "Addresses a clear pain point for early-stage food founders.", strongestEvidence: "Initial traction with a waitlist and LOIs.", formattedVerdict: formatted, finalNote: "Do not build." };
+
+  it("shows the Chair's KILL label instead of the shared pass position", () => {
+    const view = toCommitteeView(chairRun(fields));
+    expect(view.verdict).toBe("KILL");
+    const chair = view.agents.find((agent) => agent.id === "chair");
+    expect(chair?.finalPosition).toBe("KILL");
+  });
+  it("falls back to GO, PIVOT or KILL when the display verdict is missing", () => {
+    expect(toCommitteeView(chairRun({ confidence: 40 }, "Plain summary.")).verdict).toBe("KILL");
+    expect(toCommitteeView(demoRun).verdict).toBe("PIVOT");
+  });
+  it("never labels decisive reasons as strengths", () => {
+    const cards = toCommitteeView(chairRun(fields)).decisionCards;
+    const titles = cards.map((card) => card.title);
+    expect(titles).not.toContain("Strengths");
+    expect(cards.find((card) => card.title === "Why the committee says KILL")?.content).toContain("The market is too niche.");
+    expect(cards.find((card) => card.title === "Strongest case for the idea")?.content).toContain("Addresses a clear pain point");
+    expect(cards.find((card) => card.title === "Unresolved risks")?.content).toBe("Willingness to pay is unproven.");
+  });
+  it("uses the one-line summary for the heading and exposes the formatted card separately", () => {
+    const view = toCommitteeView(chairRun(fields));
+    expect(view.summary).toBe("A niche solution with weak defensibility.");
+    expect(view.fullVerdict).toBe(formatted);
+    const why = view.agents.find((agent) => agent.id === "chair")?.why;
+    expect(why?.points.some((point) => point.includes("FINAL VERDICT"))).toBe(false);
+    expect(why?.title).toBe("Chair");
+  });
+  it("keeps the plain summary when the Chair did not return a formatted card", () => {
+    const view = toCommitteeView(chairRun({ confidence: 40 }, "Plain summary."));
+    expect(view.summary).toBe("Plain summary.");
+    expect(view.fullVerdict).toBeNull();
+    expect(view.agents.find((agent) => agent.id === "chair")?.why?.points).toContain("Summary: Plain summary.");
+  });
+  it("titles Why reports by agent so two toggles on one challenge card differ", () => {
+    const view = toCommitteeView(demoRun);
+    expect(view.agents.find((agent) => agent.id === "red_team")?.why?.title).toBe("Red Team");
+    expect(view.challenges[0]?.target.why?.title).toBe(view.challenges[0]?.target.label);
+  });
+});
