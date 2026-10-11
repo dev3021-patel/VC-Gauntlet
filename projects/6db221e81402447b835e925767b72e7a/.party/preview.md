@@ -23,6 +23,6 @@ PORT=<allocated-port> npm start
 
 `build` writes frontend files under `$PARTY_OUTPUT_DIR/client` and the server bundle at `$PARTY_OUTPUT_DIR/server.mjs`. Without `PARTY_OUTPUT_DIR`, it uses `dist`. `start` must use the same output variable as the build. It binds localhost only. Party Preview can run `env PORT=<port> PARTY_OUTPUT_DIR=<project-output-path> XDG_CACHE_HOME=<project-cache-path> npm start` after building. Use `party preview start` for that command change, then `party preview ensure` for later refreshes. Never expose a port through another tunnel.
 
-`OPENAI_API_KEY` stays server-side. `OPENAI_BASE_URL` and `GAUNTLET_MODEL` are optional. Missing credentials and provider errors remain explicit retryable failures; no sample debate is substituted. Runs and separate Chair chat histories are stored in server memory and reset when that server restarts. This runtime is locally verified; no cloud deployment is part of this change.
+`OPENAI_API_KEY` stays server-side. `OPENAI_BASE_URL` and `GAUNTLET_MODEL` are optional. Missing credentials and provider errors remain explicit retryable failures; no sample debate is substituted. Runs and separate Chair chat histories are stored in server memory and reset when that server restarts. Production delivery is documented in `docs/deployment.md`. Local start still binds `127.0.0.1` unless `HOST` or `RAILWAY_ENVIRONMENT` is set.
 
 Project checks are committed in `.party/checks.json`. npm and Vite use project-specific subdirectories of `XDG_CACHE_HOME`; set it inside this project for local work as shown above.

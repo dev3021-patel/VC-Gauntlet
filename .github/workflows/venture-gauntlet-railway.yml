@@ -1,0 +1,83 @@
+name: Venture Gauntlet Railway
+run-name: Venture Gauntlet ${{ github.sha }}
+on:
+  pull_request:
+    paths:
+      - "projects/6db221e81402447b835e925767b72e7a/**"
+      - ".github/workflows/venture-gauntlet-railway.yml"
+  push:
+    branches: [main]
+    paths:
+      - "projects/6db221e81402447b835e925767b72e7a/**"
+      - ".github/workflows/venture-gauntlet-railway.yml"
+permissions:
+  contents: read
+concurrency:
+  group: venture-gauntlet-railway-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: projects/6db221e81402447b835e925767b72e7a
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: projects/6db221e81402447b835e925767b72e7a/package-lock.json
+      - name: Install, test, and build
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/venture-gauntlet-cache
+          PARTY_OUTPUT_DIR: ${{ runner.temp }}/venture-gauntlet-output
+        run: |
+          npm ci
+          npm test
+          npm run build
+          test -f "$PARTY_OUTPUT_DIR/server.mjs"
+          test -f "$PARTY_OUTPUT_DIR/client/index.html"
+  deploy:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Refuse a stale main revision
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+      - name: Confirm the deployment token is present
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: test -n "$RAILWAY_TOKEN"
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli@5.64.2
+      - name: Deploy the checked revision
+        working-directory: projects/6db221e81402447b835e925767b72e7a
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          CI: "true"
+        run: railway up --service venture-gauntlet --environment production --ci -y
+      - name: Smoke-check frontend and API
+        env:
+          APP_URL: https://venture-gauntlet-production.up.railway.app
+        run: |
+          for i in 1 2 3 4 5 6 7 8 9 10; do
+            if curl -fsS "$APP_URL/api/provider-status" -o /tmp/status.json; then break; fi
+            sleep 10
+          done
+          curl -fsS "$APP_URL/" -o /tmp/index.html
+          grep -q '<div id="root">' /tmp/index.html
+          python3 -c 'import json,urllib.request; base="https://venture-gauntlet-production.up.railway.app"; status=json.load(open("/tmp/status.json")); assert "configured" in status; assert "apiKey" not in json.dumps(status); body=json.dumps({"brief":{"idea":"Clinic intake copilot","problem":"Phone tag wastes booked visits.","targetCustomer":"Independent clinic managers","solution":"An assistant books incoming calls.","businessModel":"Monthly subscription per clinic"}}).encode(); req=urllib.request.Request(base+"/api/debate/start", data=body, headers={"content-type":"application/json"}); started=json.load(urllib.request.urlopen(req)); assert started["run"]["id"]; print("provider_configured", bool(status.get("configured"))); print("debate_start", "ok")'
