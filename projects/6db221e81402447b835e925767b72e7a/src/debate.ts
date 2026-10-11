@@ -54,6 +54,8 @@ export interface DebateRun {
   lock: { role: RoleId; stage: ContributionStage } | null;
   failure: DebateFailure | null;
   verdictRequested: boolean;
+  /** Validator message from the last failed attempt; cleared when the retried turn succeeds. */
+  retryHint?: string;
 }
 
 export interface DebateContext {
@@ -301,6 +303,7 @@ export function completeTurn(run: DebateRun, raw: string): DebateResult {
   };
   const next: DebateRun = {
     ...run,
+    retryHint: undefined,
     messages: [...run.messages, message],
     lock: null,
     failure: null,
@@ -332,7 +335,7 @@ export function retryTurn(run: DebateRun): DebateResult {
       phase: run.phase,
     });
   }
-  return { ok: true, value: { ...run, failure: null } };
+  return { ok: true, value: { ...run, failure: null, retryHint: run.failure.message } };
 }
 
 export function addFounderInput(run: DebateRun, text: string): DebateResult {

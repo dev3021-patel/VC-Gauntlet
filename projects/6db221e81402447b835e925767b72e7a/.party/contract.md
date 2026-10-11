@@ -7,7 +7,7 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - Chair-facing text uses `GO`, `PIVOT`, and `KILL`. Map those to `invest`, `pivot`, and `pass`. Never derive that verdict by translating VC `INVEST` / `MAYBE` / `PASS` or by averaging scores. Register the Chair with `registerChair` from `src/chair.ts`. Missing brief fields or required debate stages are `incomplete_context`, not a verdict.
 - Claims use `founder_provided`, `supported_evidence`, `assumption`, or `unknown`. Supported evidence needs `evidenceNote`. Do not add citations.
 - Provider calls read `OPENAI_API_KEY` on the server. Missing credentials return `missing_credentials`. Never substitute sample debate text.
-- `OPENAI_BASE_URL` and `GAUNTLET_MODEL` are optional. The default model name is `gpt-4o-mini`.
+- `OPENAI_BASE_URL` and `GAUNTLET_MODEL` are optional. The default model name is `gpt-4o`; `gpt-4o-mini` and `gpt-4.1-mini` failed the Red Team verbatim-anchor contract in live runs on 2026-10-11.
 - Debate order lives in `src/debate.ts`: assessments, Red Team challenge, rebuttals, founder pause, explicit verdict request, Chair. Retry clears a failure without deleting successful messages.
 
 ## Specialist scores for UI adapters
@@ -69,3 +69,10 @@ Later agent sessions import `src/index.ts` and register role instructions with `
 - Chair change attribution scans all messages by the named source, including later rebuttals. Quotes still require a verbatim supplied argument. Verdict chat remains separate and immutable.
 - `RootApp` preserves the approved mock UI in `App` and exposes the real workflow in `LiveDebate`. Live forms show field errors, retain failed drafts, abort abandoned requests, and ignore stale responses. Accepted failed founder messages retry from the transcript and clear the draft on successful recovery.
 - Vitest 5 replaces the affected test toolchain; the full test suite and Node runtime tests exercise integration failures. Browser checks use clearly labeled fixtures unless a real configured model is explicitly exercised.
+
+## Live-provider prompt lessons (verified 2026-10-11 against gpt-4o)
+
+- Every validator rule the model must satisfy needs to be stated as a literal instruction; models drop any key not in an explicit list. Computed facts the validator checks (Red Team assessment roster, Chair rebuttal record, specialist position and score for founder responses) are injected into the user prompt so the model echoes them rather than guesses.
+- `parseContribution` lifts a top-level `challengeReference` into `fields` and lifts `fields.changed` / `fields.changeReason` to the top level; a rebuttal with no `changed` flag anywhere still fails.
+- Requests run at temperature 0.2. `gpt-4o-mini` and `gpt-4.1-mini` could not satisfy the Red Team verbatim-anchor rule, so `gpt-4o` is the default; `GAUNTLET_MODEL` still overrides it.
+- Transient contract failures still happen a few times per debate (incumbent claim, challenge slots, rebuttal reasons). The API returns 502 with the run's `failure`, and the UI offers **Retry failed step**, which re-runs only that role.

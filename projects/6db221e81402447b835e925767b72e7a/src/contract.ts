@@ -300,7 +300,8 @@ function parseFields(value: unknown): RoleFields | null {
 
 function parseVc(fields: RoleFields, positionLabel: string): VcScorecard | null {
   const score = fields.score;
-  const investmentPosition = fields.investmentPosition;
+  // Models often omit investmentPosition while setting positionLabel; the label is authoritative.
+  const investmentPosition = fields.investmentPosition ?? positionLabel;
   if (typeof score !== "number" || !Number.isInteger(score) || score < 0 || score > 100) {
     return null;
   }
@@ -448,12 +449,27 @@ export function parseContribution(
   if ("citations" in record || "sources" in record) {
     return invalid("Generated citations are not accepted in this release.");
   }
+  // Models sometimes misplace rebuttal keys: challengeReference belongs in
+  // fields, while changed and changeReason belong at the top level. Lift them
+  // into place instead of failing an otherwise valid contribution.
+  const rawFields = asRecord(record.fields) ?? {};
+  if (typeof record.challengeReference === "string" && !("challengeReference" in rawFields)) {
+    rawFields.challengeReference = record.challengeReference;
+  }
+  if (record.changed === undefined && typeof rawFields.changed === "boolean") {
+    record.changed = rawFields.changed;
+    delete rawFields.changed;
+  }
+  if (record.changeReason === undefined && typeof rawFields.changeReason === "string") {
+    record.changeReason = rawFields.changeReason;
+    delete rawFields.changeReason;
+  }
   const summary = requiredString(record, "summary");
   const rationale = requiredString(record, "rationale");
   const positionLabel = requiredString(record, "positionLabel");
   const assumptions = parseClaims(record.assumptions);
   const risks = stringList(record.risks);
-  const fields = parseFields(record.fields ?? {});
+  const fields = parseFields(rawFields);
   if (!summary || !rationale || !positionLabel || !assumptions || !risks || !fields) {
     return invalid("The response is missing required envelope fields.");
   }

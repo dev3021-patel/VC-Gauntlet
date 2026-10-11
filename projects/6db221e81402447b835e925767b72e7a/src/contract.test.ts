@@ -118,3 +118,28 @@ describe("shared envelope", () => {
     if (withDirection.ok) expect(withDirection.value.decision?.verdict).toBe("pivot");
   });
 });
+
+describe("misplaced rebuttal keys", () => {
+  const base = JSON.parse(vcJson) as Record<string, unknown>;
+  it("lifts a top-level challengeReference into fields", () => {
+    const raw = JSON.stringify({ ...base, changed: false, changeReason: "The challenge did not move the score.", challengeReference: "unproven willingness to pay" });
+    const parsed = parseContribution("vc", "rebuttal", raw);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value.fields.challengeReference).toBe("unproven willingness to pay");
+  });
+  it("lifts changed and changeReason out of fields", () => {
+    const fields = { ...(base.fields as Record<string, unknown>), changed: true, changeReason: "The anchor exposed a weak assumption.", challengeReference: "weak assumption" };
+    const raw = JSON.stringify({ ...base, fields });
+    const parsed = parseContribution("vc", "rebuttal", raw);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.changed).toBe(true);
+      expect(parsed.value.changeReason).toBe("The anchor exposed a weak assumption.");
+      expect(parsed.value.fields.changed).toBeUndefined();
+    }
+  });
+  it("still rejects a rebuttal with no changed flag anywhere", () => {
+    const raw = JSON.stringify({ ...base, changeReason: "Held.", challengeReference: "weak" });
+    expect(parseContribution("vc", "rebuttal", raw).ok).toBe(false);
+  });
+});

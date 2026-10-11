@@ -85,6 +85,8 @@ export interface RedTeamRequest {
   brief: IdeaBrief;
   assessments: AssessmentSource[];
   founderDefense?: string;
+  /** Validator message from a rejected previous attempt, echoed into the prompt. */
+  retryHint?: string;
 }
 
 export type RedTeamResult =
@@ -283,6 +285,15 @@ function catalog(request: RedTeamRequest): string {
     );
     lines.push(source.text);
   }
+  const missing = missingRoles(request.assessments);
+  const present = request.assessments.map((source) => source.role);
+  lines.push(
+    "",
+    `ASSESSMENT ROSTER: present ${present.join(", ") || "(none)"}; missing ${missing.join(", ") || "(none)"}.`,
+    missing.length === 0
+      ? "All four specialist assessments are present. fields.reviewComplete must be true, fields.missingAssessments must be [], positionLabel must be \"challenge\", and the phrase \"not a complete committee review\" must not appear anywhere in the response. Fill all three challenge slots: use status \"substantive\" for each supportable challenge and status \"unavailable\" for any slot without one."
+      : `The review is partial. fields.reviewComplete must be false, fields.missingAssessments must be ${JSON.stringify(missing)}, positionLabel must be "partial", and summary must name ${missing.map((role) => ROLE_LABEL[role]).join(" and ")} and include the phrase "not a complete committee review".`,
+  );
   lines.push("", "FOUNDER DEFENSE:", request.founderDefense?.trim() || "(none)");
   return lines.join("\n");
 }
@@ -606,6 +617,7 @@ export function buildRedTeamPrompt(
     lock: null,
     failure: null,
     verdictRequested: false,
+    ...(request.retryHint ? { retryHint: request.retryHint } : {}),
   };
   const prompt = buildGenerationPrompt(run, "red_team", "challenge", registry);
   if (!prompt.ok) return prompt;
@@ -689,7 +701,7 @@ export function redTeamRequestFromRun(run: DebateRun): RedTeamRequest {
     .map((item) => item.trim())
     .filter(Boolean)
     .join("\n");
-  return { brief: run.brief, assessments, ...(defense ? { founderDefense: defense } : {}) };
+  return { brief: run.brief, assessments, ...(defense ? { founderDefense: defense } : {}), ...(run.retryHint ? { retryHint: run.retryHint } : {}) };
 }
 
 export async function runRedTeamTurn(

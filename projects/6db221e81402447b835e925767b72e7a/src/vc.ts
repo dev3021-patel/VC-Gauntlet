@@ -27,8 +27,8 @@ Opening assessment (stage assessment):
 - strongestInvestmentCase is one sharp reason this could become big. biggestFundabilityRisk is the main reason it may not be venture-backable. marketSizeConcern says whether the target market is large enough or too narrow. first100Users is how it gets the first 100 users. defensibilityConcern says what stops a bigger company from copying it. killShotQuestion is one question the founder must answer before you invest. oneLineVerdict is a brutal, memorable sentence.
 
 Rebuttal (stage rebuttal), after the Red Team challenge:
-- Copy one phrase verbatim from the Red Team challenge into fields.challengeReference, then answer it directly.
-- Return the full scorecard fields again. Set changed to true only if your score or position differs from your opening; set changed to false if both are identical. changeReason says why. If a challenge proved an assumption weak, admit it and revise the score.
+- Copy one phrase verbatim from the Red Team challenge into fields.challengeReference (inside the fields object, not at the top level), then answer it directly.
+- Return the full scorecard fields again. Put changed (boolean) and changeReason (string) at the top level of the JSON object, not inside fields. Set changed to true only if your score or position differs from your opening; set changed to false if both are identical. changeReason says why. If a challenge proved an assumption weak, admit it and revise the score.
 
 Founder response (stage founder_response):
 - Answer the founder's question or evidence from the brief and the discussion so far, in a few sharp sentences.

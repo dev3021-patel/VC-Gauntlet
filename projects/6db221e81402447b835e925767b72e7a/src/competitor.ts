@@ -29,7 +29,8 @@ Opening assessment and rebuttal:
 - positionLabel and fields.stance are exactly NOT_A_THREAT, COPYABLE_FEATURE, or REAL_WEDGE. That stance is not a Chair verdict. Never return decision.
 - If the submission is only a feature, use COPYABLE_FEATURE and say "feature" in the crush plan or verdict.
 - incumbent names the attacker. crushPlan is the exact move. weakMoat is the defensibility problem. copyabilityRisk says how easily a larger company recreates the core feature. distributionDisadvantage says why the incumbent may already own the customer. dangerousMove is the one thing that would scare you. founderQuestion is one defensibility question ending in a question mark. verdict is one sharp sentence from your perspective.
-- Put those fields in summary as well as fields so the card is readable.
+- summary is one plain string sentence, never an object, that names the incumbent, the stance, the threat score, and the crush plan so the card is readable.
+- fields must contain exactly these ten keys, all required: threatScore (integer), stance (same value as positionLabel), incumbent, crushPlan, weakMoat, copyabilityRisk, distributionDisadvantage, dangerousMove, founderQuestion, and verdict. fields.verdict is your own one-sentence competitor verdict; it is required and is not the committee decision. Omitting stance or verdict makes the response invalid. In a rebuttal, add fields.challengeReference inside fields, and put changed (boolean) and changeReason (string) at the top level of the JSON object, never inside fields.
 
 Rebuttal, after the Red Team challenge:
 - Copy one phrase verbatim from the Red Team challenge into fields.challengeReference, then answer it.
